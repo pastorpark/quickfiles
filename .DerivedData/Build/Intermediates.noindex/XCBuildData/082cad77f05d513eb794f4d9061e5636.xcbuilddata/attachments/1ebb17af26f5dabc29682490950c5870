@@ -1,0 +1,109 @@
+{
+  "" : {
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFiles-primary.dia",
+    "emit-module-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFiles-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFiles-primary-emit-module.dia",
+    "pch" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFiles-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFiles-primary.swiftdeps"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/QuickFiles/Models/AppModels.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/AppModels.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/AppModels.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/AppModels.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/AppModels.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/AppModels.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/AppModels.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/AppModels.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/AppModels~partial.swiftmodule"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/QuickFiles/QuickFilesApp.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFilesApp.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFilesApp.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFilesApp.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFilesApp.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFilesApp.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFilesApp.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFilesApp.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickFilesApp~partial.swiftmodule"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/QuickFiles/Services/HotKeyController.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/HotKeyController.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/HotKeyController.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/HotKeyController.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/HotKeyController.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/HotKeyController.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/HotKeyController.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/HotKeyController.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/HotKeyController~partial.swiftmodule"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/QuickFiles/Services/RecentFileScanner.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/RecentFileScanner.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/RecentFileScanner.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/RecentFileScanner.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/RecentFileScanner.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/RecentFileScanner.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/RecentFileScanner.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/RecentFileScanner.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/RecentFileScanner~partial.swiftmodule"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/QuickFiles/Services/SettingsStore.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsStore.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsStore.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsStore.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsStore.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsStore.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsStore.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsStore.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsStore~partial.swiftmodule"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/QuickFiles/UI/PanelController.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/PanelController.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/PanelController.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/PanelController.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/PanelController.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/PanelController.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/PanelController.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/PanelController.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/PanelController~partial.swiftmodule"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/QuickFiles/UI/QuickAccessView.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickAccessView.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickAccessView.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickAccessView.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickAccessView.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickAccessView.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickAccessView.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickAccessView.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/QuickAccessView~partial.swiftmodule"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/QuickFiles/UI/SettingsView.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsView.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsView.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsView.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsView.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsView.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsView.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsView.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsView~partial.swiftmodule"
+  },
+  "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/QuickFiles/UI/SettingsWindowController.swift" : {
+    "const-values" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsWindowController.swiftconstvalues",
+    "dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsWindowController.d",
+    "diagnostics" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsWindowController.dia",
+    "index-unit-output-path" : "/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsWindowController.o",
+    "llvm-bc" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsWindowController.bc",
+    "object" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsWindowController.o",
+    "swift-dependencies" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsWindowController.swiftdeps",
+    "swiftmodule" : "/Users/park.ichungeoram/Documents/Codex/QuickFilesApp/.DerivedData/Build/Intermediates.noindex/QuickFiles.build/Debug/QuickFiles.build/Objects-normal/arm64/SettingsWindowController~partial.swiftmodule"
+  }
+}

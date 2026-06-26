@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Xcode
+.DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+
+# Swift Package / Xcode generated
+.swiftpm/
+Package.resolved
+
+# Archives and exported apps
+*.xcarchive
+*.app
+*.dSYM

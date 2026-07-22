@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.panelController.toggle()
         }
         hotKeyController.register(store.hotKey)
+        panelController.startMonitoring()
 
         store.$hotKey
             .dropFirst()
@@ -46,10 +47,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = NSImage(systemSymbolName: "doc.text.magnifyingglass", accessibilityDescription: "QuickFiles")
 
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "QuickFiles 열기", action: #selector(openPanel), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "설정", action: #selector(openSettings), keyEquivalent: ","))
+        let openItem = NSMenuItem(title: "QuickFiles 열기", action: #selector(openPanel), keyEquivalent: "")
+        openItem.target = self
+        menu.addItem(openItem)
+
+        let settingsItem = NSMenuItem(title: "설정", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "종료", action: #selector(quit), keyEquivalent: "q"))
+
+        let quitItem = NSMenuItem(title: "종료", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
         item.menu = menu
         statusItem = item
     }

@@ -17,6 +17,8 @@
 		A1B2C3D4E5F6020000000008 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000008 /* SettingsView.swift */; };
 		A1B2C3D4E5F6020000000009 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000009 /* SettingsWindowController.swift */; };
 		A1B2C3D4E5F6020000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000010 /* Assets.xcassets */; };
+		A1B2C3D4E5F6020000000011 /* FileSystemEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000011 /* FileSystemEventMonitor.swift */; };
+		A1B2C3D4E5F6020000000012 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000012 /* LaunchAtLoginController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +32,8 @@
 		A1B2C3D4E5F6010000000008 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010000000009 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1B2C3D4E5F6010000000011 /* FileSystemEventMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemEventMonitor.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6010000000012 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6030000000001 /* QuickFiles.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuickFiles.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -75,7 +79,9 @@
 		A1B2C3D4E5F6050000000004 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F6010000000011 /* FileSystemEventMonitor.swift */,
 				A1B2C3D4E5F6010000000003 /* HotKeyController.swift */,
+				A1B2C3D4E5F6010000000012 /* LaunchAtLoginController.swift */,
 				A1B2C3D4E5F6010000000004 /* RecentFileScanner.swift */,
 				A1B2C3D4E5F6010000000005 /* SettingsStore.swift */,
 			);
@@ -179,6 +185,8 @@
 				A1B2C3D4E5F6020000000007 /* QuickAccessView.swift in Sources */,
 				A1B2C3D4E5F6020000000008 /* SettingsView.swift in Sources */,
 				A1B2C3D4E5F6020000000009 /* SettingsWindowController.swift in Sources */,
+				A1B2C3D4E5F6020000000011 /* FileSystemEventMonitor.swift in Sources */,
+				A1B2C3D4E5F6020000000012 /* LaunchAtLoginController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

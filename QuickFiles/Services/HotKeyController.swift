@@ -34,8 +34,9 @@ final class HotKeyController {
     func register(_ definition: HotKeyDefinition = .defaultValue) {
         unregister()
         currentDefinition = definition
-        installCarbonHotKey(definition)
-        installEventMonitors(definition)
+        if !installCarbonHotKey(definition) {
+            installEventMonitors(definition)
+        }
     }
 
     func unregister() {
@@ -60,7 +61,7 @@ final class HotKeyController {
         }
     }
 
-    private func installCarbonHotKey(_ definition: HotKeyDefinition) {
+    private func installCarbonHotKey(_ definition: HotKeyDefinition) -> Bool {
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let selfPointer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
 
@@ -97,7 +98,7 @@ final class HotKeyController {
 
         guard handlerStatus == noErr else {
             NSLog("QuickFiles hotkey handler install failed: \(handlerStatus)")
-            return
+            return false
         }
 
         let hotKey = EventHotKeyID(signature: signature, id: hotKeyID)
@@ -112,7 +113,13 @@ final class HotKeyController {
 
         if registerStatus != noErr {
             NSLog("QuickFiles Carbon hotkey registration failed: \(registerStatus)")
+            if let eventHandler {
+                RemoveEventHandler(eventHandler)
+                self.eventHandler = nil
+            }
+            return false
         }
+        return true
     }
 
     private func installEventMonitors(_ definition: HotKeyDefinition) {

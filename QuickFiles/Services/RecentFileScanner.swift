@@ -9,51 +9,108 @@ actor RecentFileScanner {
         .contentModificationDateKey,
         .creationDateKey,
         .addedToDirectoryDateKey,
-        .attributeModificationDateKey,
-        .localizedTypeDescriptionKey
+        .attributeModificationDateKey
     ]
+    private var itemsByPath: [String: FileItem] = [:]
+    private var sortedCache: [FileItem] = []
 
     func scan(
         folders: [FolderRule],
-        excludedFolders: [FolderRule],
-        bookmarks: [StoredBookmark],
-        limit: Int? = nil
-    ) async -> [FileItem] {
+        excludedFolders: [FolderRule]
+    ) -> [FileItem] {
         let excludedPaths = excludedFolders.map { normalizedDirectoryPath($0.url) }
-        var itemsByPath: [String: FileItem] = [:]
+        var scannedItems: [String: FileItem] = [:]
 
         for folder in folders {
-            scanFolder(folder.url, resourceKeys: resourceKeys, excludedPaths: excludedPaths, into: &itemsByPath)
-        }
-
-        for bookmark in bookmarks {
-            let values = try? bookmark.url.resourceValues(forKeys: [
-                .contentModificationDateKey,
-                .creationDateKey,
-                .addedToDirectoryDateKey,
-                .attributeModificationDateKey
-            ])
-            itemsByPath[bookmark.url.path] = FileItem(
-                url: bookmark.url,
-                modifiedAt: values?.contentModificationDate,
-                createdAt: values?.creationDate,
-                addedAt: values?.addedToDirectoryDate,
-                metadataChangedAt: values?.attributeModificationDate,
-                kind: .bookmark
+            if Task.isCancelled { return sortedCache }
+            scanFolder(
+                folder.url,
+                resourceKeys: resourceKeys,
+                excludedPaths: excludedPaths,
+                into: &scannedItems
             )
         }
 
-        let sortedItems = itemsByPath.values
-            .sorted { lhs, rhs in
-                sortDate(for: lhs) > sortDate(for: rhs)
-            }
-
-        guard let limit else { return sortedItems }
-        return sortedItems.prefix(max(1, limit)).map { $0 }
+        guard !Task.isCancelled else { return sortedCache }
+        itemsByPath = scannedItems
+        rebuildSortedCache()
+        return sortedCache
     }
 
-    private func sortDate(for item: FileItem) -> Date {
-        item.activityAt ?? .distantPast
+    func applyChanges(
+        _ changes: [FileSystemChange],
+        folders: [FolderRule],
+        excludedFolders: [FolderRule]
+    ) -> [FileItem] {
+        let scanPaths = folders.map { normalizedDirectoryPath($0.url) }
+        let excludedPaths = excludedFolders.map { normalizedDirectoryPath($0.url) }
+        let fileManager = FileManager.default
+        var didMutate = false
+
+        for change in changes {
+            if Task.isCancelled { break }
+
+            let url = URL(fileURLWithPath: change.path)
+            let path = url.standardizedFileURL.path
+
+            if change.wasRemoved || change.wasRenamed {
+                didMutate = removeItemAndDescendants(at: path) || didMutate
+            }
+
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory) else {
+                didMutate = removeItemAndDescendants(at: path) || didMutate
+                continue
+            }
+
+            guard isIncluded(url, scanPaths: scanPaths, excludedPaths: excludedPaths) else {
+                didMutate = removeItemAndDescendants(at: path) || didMutate
+                continue
+            }
+
+            if isDirectory.boolValue {
+                if change.wasCreated || change.wasRenamed {
+                    let previousCount = itemsByPath.count
+                    scanFolder(
+                        url,
+                        resourceKeys: resourceKeys,
+                        excludedPaths: excludedPaths,
+                        into: &itemsByPath
+                    )
+                    didMutate = itemsByPath.count != previousCount || didMutate
+                }
+                continue
+            }
+
+            if let item = makeFileItem(url: url, resourceKeys: resourceKeys) {
+                if itemsByPath[path] != item {
+                    itemsByPath[path] = item
+                    didMutate = true
+                }
+            } else {
+                didMutate = itemsByPath.removeValue(forKey: path) != nil || didMutate
+            }
+        }
+
+        if didMutate {
+            rebuildSortedCache()
+        }
+        return sortedCache
+    }
+
+    private func rebuildSortedCache() {
+        sortedCache = itemsByPath.values.sorted {
+            ($0.activityAt ?? .distantPast) > ($1.activityAt ?? .distantPast)
+        }
+    }
+
+    private func removeItemAndDescendants(at path: String) -> Bool {
+        let directoryPrefix = path.hasSuffix("/") ? path : path + "/"
+        let previousCount = itemsByPath.count
+        itemsByPath = itemsByPath.filter {
+            $0.key != path && !$0.key.hasPrefix(directoryPrefix)
+        }
+        return itemsByPath.count != previousCount
     }
 }
 
@@ -91,10 +148,9 @@ private func scanFolder(
         if values.isDirectory == true {
             continue
         }
-
         guard values.isRegularFile == true, values.isHidden != true else { continue }
 
-        itemsByPath[url.path] = FileItem(
+        itemsByPath[url.standardizedFileURL.path] = FileItem(
             url: url,
             modifiedAt: values.contentModificationDate,
             createdAt: values.creationDate,
@@ -103,6 +159,36 @@ private func scanFolder(
             kind: .recent
         )
     }
+}
+
+private func makeFileItem(url: URL, resourceKeys: Set<URLResourceKey>) -> FileItem? {
+    guard let values = try? url.resourceValues(forKeys: resourceKeys),
+          values.isDirectory != true,
+          values.isRegularFile == true,
+          values.isHidden != true else {
+        return nil
+    }
+
+    return FileItem(
+        url: url,
+        modifiedAt: values.contentModificationDate,
+        createdAt: values.creationDate,
+        addedAt: values.addedToDirectoryDate,
+        metadataChangedAt: values.attributeModificationDate,
+        kind: .recent
+    )
+}
+
+private func isIncluded(_ url: URL, scanPaths: [String], excludedPaths: [String]) -> Bool {
+    let path = normalizedDirectoryPath(url)
+    guard let scanPath = scanPaths.first(where: { path == $0 || path.hasPrefix($0 + "/") }) else {
+        return false
+    }
+    let relativePath = path.dropFirst(scanPath.count)
+    let containsHiddenComponent = relativePath
+        .split(separator: "/")
+        .contains { $0.hasPrefix(".") }
+    return !containsHiddenComponent && !isExcluded(url, excludedPaths: excludedPaths)
 }
 
 private func isExcluded(_ url: URL, excludedPaths: [String]) -> Bool {

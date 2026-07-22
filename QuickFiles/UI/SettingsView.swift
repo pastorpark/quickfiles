@@ -4,9 +4,15 @@ import Carbon
 
 struct SettingsView: View {
     @ObservedObject var store: SettingsStore
+    @StateObject private var launchAtLogin = LaunchAtLoginController()
 
     var body: some View {
         TabView {
+            generalSettings
+                .tabItem {
+                    Label("일반", systemImage: "gearshape")
+                }
+
             hotKeySettings
                 .tabItem {
                     Label("단축키", systemImage: "keyboard")
@@ -44,6 +50,46 @@ struct SettingsView: View {
     }
 
     @State private var hotKeyErrorMessage: String?
+
+    private var generalSettings: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("일반")
+                .font(.title2.weight(.semibold))
+
+            Toggle(
+                "로그인 시 QuickFiles 자동 실행",
+                isOn: Binding(
+                    get: { launchAtLogin.isEnabled },
+                    set: { launchAtLogin.setEnabled($0) }
+                )
+            )
+
+            if launchAtLogin.requiresApproval {
+                Label("시스템 설정에서 QuickFiles 실행을 허용해야 합니다.", systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+
+                Button("로그인 항목 설정 열기") {
+                    launchAtLogin.openLoginItemsSettings()
+                }
+            }
+
+            if let errorMessage = launchAtLogin.errorMessage {
+                Label(errorMessage, systemImage: "xmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+            }
+
+            Spacer()
+        }
+        .padding(20)
+        .onAppear {
+            launchAtLogin.refresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            launchAtLogin.refresh()
+        }
+    }
 
     private var hotKeySettings: some View {
         VStack(alignment: .leading, spacing: 18) {

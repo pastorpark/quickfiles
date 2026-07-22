@@ -6,37 +6,52 @@ struct QuickAccessView: View {
     @ObservedObject var store: SettingsStore
     @ObservedObject var controller: PanelController
     @State private var query = ""
+    @State private var effectiveQuery = ""
     @State private var selectedItemID: FileItem.ID?
 
-    private var filteredItems: [FileItem] {
-        let terms = searchTerms
-        guard !terms.isEmpty else {
-            return controller.items
-        }
+    private var recentItems: [FileItem] {
+        sourceItems.filter { $0.kind == .recent }
+    }
 
-        return controller.searchableItems.filter { item in
-            terms.allSatisfy { term in
-                item.displayName.localizedCaseInsensitiveContains(term) ||
-                item.parentPath.localizedCaseInsensitiveContains(term)
+    private var bookmarkItems: [FileItem] {
+        store.bookmarks
+            .map { bookmark in
+                FileItem(url: bookmark.url, modifiedAt: nil, createdAt: nil, kind: .bookmark)
             }
-        }
+            .filter(matchesSearch)
+    }
+
+    private var sourceItems: [FileItem] {
+        guard !searchTerms.isEmpty else { return controller.items }
+        return controller.searchableItems.filter(matchesSearch)
+    }
+
+    private var displayedItems: [FileItem] {
+        recentItems + bookmarkItems
     }
 
     private var searchTerms: [String] {
-        query
+        effectiveQuery
             .split(whereSeparator: { $0.isWhitespace })
-            .map(String.init)
+            .map {
+                String($0).folding(
+                    options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                    locale: .current
+                )
+            }
     }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            content
+            recentGrid
+            Divider()
+            bookmarkStrip
             Divider()
             footer
         }
-        .frame(minWidth: 680, minHeight: 460)
+        .frame(width: 760, height: 380)
         .background(.regularMaterial)
         .background(
             KeyEventView { event in
@@ -46,7 +61,19 @@ struct QuickAccessView: View {
         .onAppear {
             selectFirstItemIfNeeded()
         }
-        .onChange(of: filteredItems) { newItems in
+        .task(id: query) {
+            if query.isEmpty {
+                effectiveQuery = ""
+                return
+            }
+            do {
+                try await Task.sleep(nanoseconds: 150_000_000)
+            } catch {
+                return
+            }
+            effectiveQuery = query
+        }
+        .onChange(of: displayedItems) { newItems in
             if let selectedItemID, newItems.contains(where: { $0.id == selectedItemID }) {
                 return
             }
@@ -68,17 +95,29 @@ struct QuickAccessView: View {
                 ProgressView()
                     .controlSize(.small)
             }
+
+            Button {
+                controller.hide()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("닫기")
         }
-        .padding(18)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(WindowDragRegion())
     }
 
-    private var content: some View {
+    private var recentGrid: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 2) {
-                    ForEach(filteredItems) { item in
-                        let isSelected = item.id == selectedItemID
-                        FileRow(item: item, isSelected: isSelected)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 10) {
+                    ForEach(recentItems) { item in
+                        FileTile(item: item, isSelected: item.id == selectedItemID)
                             .id(item.id)
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -92,36 +131,28 @@ struct QuickAccessView: View {
                                 return fileProvider(for: item)
                             }
                             .contextMenu {
-                                Button("파인더에 위치 표시") {
-                                    controller.reveal(item)
-                                }
-                                Button("열기") {
-                                    controller.open(item)
-                                }
-                                Button("복사") {
-                                    controller.copy(item)
-                                }
+                                fileContextMenu(for: item)
                             }
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
             }
             .onChange(of: selectedItemID) { itemID in
-                guard let itemID else { return }
+                guard let itemID, recentItems.contains(where: { $0.id == itemID }) else { return }
                 withAnimation(.easeOut(duration: 0.12)) {
                     proxy.scrollTo(itemID, anchor: .center)
                 }
             }
             .overlay {
-                if filteredItems.isEmpty {
+                if recentItems.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "tray")
                             .font(.system(size: 28))
                             .foregroundStyle(.secondary)
-                        Text("표시할 파일이 없습니다")
+                        Text(searchTerms.isEmpty ? "표시할 변경 파일이 없습니다" : "검색 결과가 없습니다")
                             .font(.headline)
-                        Text("설정에서 검색 폴더를 추가하거나 북마크를 등록하세요.")
+                        Text("검색 폴더와 제외 폴더는 설정에서 관리할 수 있습니다.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -130,28 +161,63 @@ struct QuickAccessView: View {
         }
     }
 
+    private var bookmarkStrip: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("북마크")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 10) {
+                    ForEach(bookmarkItems) { item in
+                        BookmarkTile(item: item, isSelected: item.id == selectedItemID)
+                            .id(item.id)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedItemID = item.id
+                            }
+                            .onTapGesture(count: 2) {
+                                openOrReveal(item, modifierFlags: NSApp.currentEvent?.modifierFlags ?? [])
+                            }
+                            .onDrag {
+                                selectedItemID = item.id
+                                return fileProvider(for: item)
+                            }
+                            .contextMenu {
+                                fileContextMenu(for: item)
+                            }
+                    }
+
+                    Button {
+                        addBookmark()
+                    } label: {
+                        VStack(spacing: 7) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 18, weight: .semibold))
+                                .frame(width: 46, height: 46)
+                                .background(Color.secondary.opacity(0.12))
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            Text("추가")
+                                .font(.caption)
+                        }
+                        .frame(width: 72, height: 82)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
+            }
+        }
+        .frame(height: 112)
+    }
+
     private var footer: some View {
         HStack(spacing: 10) {
-            Button {
-                addBookmark()
-            } label: {
-                Label("북마크 추가", systemImage: "bookmark")
-            }
-
-            Button {
-                addScanFolder()
-            } label: {
-                Label("검색 폴더", systemImage: "folder.badge.plus")
-            }
-
-            Button {
-                addExcludedFolder()
-            } label: {
-                Label("제외 폴더", systemImage: "folder.badge.minus")
-            }
-
-            Spacer()
-
             Button {
                 if let item = selectedItem {
                     move(item)
@@ -161,6 +227,8 @@ struct QuickAccessView: View {
             }
             .disabled(selectedItem == nil)
 
+            Spacer()
+
             Button {
                 controller.refresh()
             } label: {
@@ -169,17 +237,25 @@ struct QuickAccessView: View {
             .help("새로고침")
         }
         .buttonStyle(.bordered)
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(WindowDragRegion())
     }
 
     private var selectedItem: FileItem? {
         guard let selectedItemID else { return nil }
-        return filteredItems.first { $0.id == selectedItemID }
+        return displayedItems.first { $0.id == selectedItemID }
+    }
+
+    private func matchesSearch(_ item: FileItem) -> Bool {
+        let terms = searchTerms
+        guard !terms.isEmpty else { return true }
+        return terms.allSatisfy(item.searchText.contains)
     }
 
     private func selectFirstItemIfNeeded() {
-        if selectedItemID == nil || !filteredItems.contains(where: { $0.id == selectedItemID }) {
-            selectedItemID = filteredItems.first?.id
+        if selectedItemID == nil || !displayedItems.contains(where: { $0.id == selectedItemID }) {
+            selectedItemID = displayedItems.first?.id
         }
     }
 
@@ -187,11 +263,17 @@ struct QuickAccessView: View {
         guard event.type == .keyDown, controller.isQuickPanelActive else { return false }
 
         switch event.keyCode {
-        case 125:
+        case 123:
+            moveSelection(by: -1)
+            return true
+        case 124:
             moveSelection(by: 1)
             return true
+        case 125:
+            moveSelection(by: 5)
+            return true
         case 126:
-            moveSelection(by: -1)
+            moveSelection(by: -5)
             return true
         case 36, 76:
             if let selectedItem {
@@ -207,6 +289,19 @@ struct QuickAccessView: View {
         }
     }
 
+    @ViewBuilder
+    private func fileContextMenu(for item: FileItem) -> some View {
+        Button("파인더에 위치 표시") {
+            controller.reveal(item)
+        }
+        Button("열기") {
+            controller.open(item)
+        }
+        Button("복사") {
+            controller.copy(item)
+        }
+    }
+
     private func openOrReveal(_ item: FileItem, modifierFlags: NSEvent.ModifierFlags) {
         if modifierFlags.contains(.command) {
             controller.reveal(item)
@@ -216,15 +311,15 @@ struct QuickAccessView: View {
     }
 
     private func moveSelection(by offset: Int) {
-        guard !filteredItems.isEmpty else { return }
+        guard !displayedItems.isEmpty else { return }
         guard let selectedItemID,
-              let currentIndex = filteredItems.firstIndex(where: { $0.id == selectedItemID }) else {
-            self.selectedItemID = filteredItems.first?.id
+              let currentIndex = displayedItems.firstIndex(where: { $0.id == selectedItemID }) else {
+            self.selectedItemID = displayedItems.first?.id
             return
         }
 
-        let nextIndex = min(max(currentIndex + offset, 0), filteredItems.count - 1)
-        self.selectedItemID = filteredItems[nextIndex].id
+        let nextIndex = min(max(currentIndex + offset, 0), displayedItems.count - 1)
+        self.selectedItemID = displayedItems[nextIndex].id
     }
 
     private func fileProvider(for item: FileItem) -> NSItemProvider {
@@ -252,83 +347,82 @@ struct QuickAccessView: View {
         panel.canChooseDirectories = true
         if panel.runModal() == .OK {
             panel.urls.forEach { store.addBookmark($0) }
-            controller.refresh()
-        }
-    }
-
-    private func addScanFolder() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        if panel.runModal() == .OK {
-            panel.urls.forEach { store.addScanFolder($0) }
-            controller.refresh()
-        }
-    }
-
-    private func addExcludedFolder() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        if panel.runModal() == .OK {
-            panel.urls.forEach { store.addExcludedFolder($0) }
-            controller.refresh()
         }
     }
 }
 
-private struct FileRow: View {
+private struct FileTile: View {
     let item: FileItem
     let isSelected: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
-            FilePreviewIcon(url: item.url)
-                .frame(width: 32, height: 32)
-                .overlay(alignment: .topTrailing) {
-                    if item.kind == .bookmark {
-                        Image(systemName: "bookmark.fill")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.yellow)
-                            .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
-                    }
-                }
+        VStack(spacing: 7) {
+            FilePreviewIcon(url: item.url, version: item.activityAt)
+                .frame(width: 58, height: 58)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.displayName)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(isSelected ? .white : .primary)
-                    .lineLimit(1)
-                Text(item.parentPath)
-                    .font(.caption)
-                    .foregroundStyle(isSelected ? .white.opacity(0.82) : .secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer()
+            Text(item.displayName)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(isSelected ? .white : .primary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(height: 32, alignment: .top)
 
             if let date = item.activityAt {
-                Text(date, style: .relative)
-                    .font(.caption)
+                Text(date.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated)))
+                    .font(.caption2)
                     .foregroundStyle(isSelected ? .white.opacity(0.82) : .secondary)
+                    .lineLimit(1)
             }
         }
-        .padding(.horizontal, 10)
+        .frame(width: 110, height: 124, alignment: .top)
         .padding(.vertical, 8)
-        .background(rowBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-    }
-
-    private var iconColor: Color {
-        isSelected ? .white.opacity(0.9) : .secondary
+        .background(tileBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     @ViewBuilder
-    private var rowBackground: some View {
+    private var tileBackground: some View {
         if isSelected {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.accentColor.opacity(0.88))
+        } else {
+            Color.clear
+        }
+    }
+}
+
+private struct BookmarkTile: View {
+    let item: FileItem
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(spacing: 7) {
+            FilePreviewIcon(url: item.url, version: item.activityAt)
+                .frame(width: 46, height: 46)
+                .overlay(alignment: .topTrailing) {
+                    Image(systemName: "bookmark.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.yellow)
+                        .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
+                }
+
+            Text(item.displayName)
+                .font(.caption)
+                .foregroundStyle(isSelected ? .white : .primary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(height: 28, alignment: .top)
+        }
+        .frame(width: 76, height: 82, alignment: .top)
+        .padding(.vertical, 4)
+        .background(tileBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var tileBackground: some View {
+        if isSelected {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.accentColor.opacity(0.88))
         } else {
             Color.clear
@@ -338,7 +432,12 @@ private struct FileRow: View {
 
 private struct FilePreviewIcon: View {
     let url: URL
+    let version: Date?
     @State private var image: NSImage?
+
+    private var cacheKey: String {
+        "\(url.standardizedFileURL.path)|\(version?.timeIntervalSinceReferenceDate ?? 0)"
+    }
 
     var body: some View {
         Group {
@@ -347,23 +446,50 @@ private struct FilePreviewIcon: View {
                     .resizable()
                     .scaledToFit()
             } else {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                    .resizable()
-                    .scaledToFit()
+                ProgressView()
+                    .controlSize(.small)
             }
         }
-        .task(id: url.path) {
-            image = await thumbnail(for: url) ?? NSWorkspace.shared.icon(forFile: url.path)
+        .task(id: cacheKey) {
+            image = await ThumbnailProvider.shared.image(
+                for: url,
+                version: version
+            )
         }
     }
+}
 
-    private func thumbnail(for url: URL) async -> NSImage? {
+@MainActor
+private final class ThumbnailProvider {
+    static let shared = ThumbnailProvider()
+
+    private let cache = NSCache<NSString, NSImage>()
+
+    private init() {
+        cache.countLimit = 160
+        cache.totalCostLimit = 24 * 1_024 * 1_024
+    }
+
+    func image(for url: URL, version: Date?) async -> NSImage {
+        let key = "\(url.standardizedFileURL.path)|\(version?.timeIntervalSinceReferenceDate ?? 0)"
+        let cacheKey = key as NSString
+
+        if let cached = cache.object(forKey: cacheKey) {
+            return cached
+        }
+        let image = await Self.generateThumbnail(for: url)
+            ?? NSWorkspace.shared.icon(forFile: url.path)
+        cache.setObject(image, forKey: cacheKey, cost: 64 * 64 * 4 * 4)
+        return image
+    }
+
+    private static func generateThumbnail(for url: URL) async -> NSImage? {
         let size = CGSize(width: 64, height: 64)
         let request = QLThumbnailGenerator.Request(
             fileAt: url,
             size: size,
             scale: NSScreen.main?.backingScaleFactor ?? 2,
-            representationTypes: .all
+            representationTypes: .thumbnail
         )
 
         return await withCheckedContinuation { continuation in
@@ -375,6 +501,18 @@ private struct FilePreviewIcon: View {
                 }
             }
         }
+    }
+}
+
+private struct WindowDragRegion: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        DragView(frame: .zero)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
     }
 }
 

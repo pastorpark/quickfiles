@@ -6,6 +6,7 @@ struct FileItem: Identifiable, Hashable {
     let url: URL
     let displayName: String
     let parentPath: String
+    let searchText: String
     let modifiedAt: Date?
     let createdAt: Date?
     let addedAt: Date?
@@ -24,6 +25,10 @@ struct FileItem: Identifiable, Hashable {
         self.id = url.path
         self.displayName = url.lastPathComponent
         self.parentPath = url.deletingLastPathComponent().path
+        self.searchText = "\(self.displayName) \(self.parentPath)".folding(
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+            locale: .current
+        )
         self.modifiedAt = modifiedAt
         self.createdAt = createdAt
         self.addedAt = addedAt

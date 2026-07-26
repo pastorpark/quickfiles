@@ -3,9 +3,11 @@
 
 # Xcode
 .DerivedData/
+DerivedData/
 build/
 *.xcuserstate
 xcuserdata/
+*.xcuserdata/
 
 # Swift Package / Xcode generated
 .swiftpm/
@@ -15,3 +17,7 @@ Package.resolved
 *.xcarchive
 *.app
 *.dSYM
+
+# Local build and release artifacts
+.build/
+dist/

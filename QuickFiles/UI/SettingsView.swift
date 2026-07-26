@@ -5,6 +5,7 @@ import Carbon
 struct SettingsView: View {
     @ObservedObject var store: SettingsStore
     @StateObject private var launchAtLogin = LaunchAtLoginController()
+    @State private var excludedExtensionInput = ""
 
     var body: some View {
         TabView {
@@ -29,13 +30,7 @@ struct SettingsView: View {
                 Label("검색", systemImage: "folder")
             }
 
-            folderList(
-                title: "제외 폴더",
-                items: store.excludedFolders,
-                emptyText: "검색에서 제외할 폴더를 추가하세요.",
-                addAction: addExcludedFolder,
-                removeAction: store.removeExcludedFolder
-            )
+            exclusionSettings
             .tabItem {
                 Label("제외", systemImage: "minus.circle")
             }
@@ -192,6 +187,84 @@ struct SettingsView: View {
         }
     }
 
+    private var exclusionSettings: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("제외 규칙")
+                .font(.title2.weight(.semibold))
+
+            List {
+                Section("위치") {
+                    if store.excludedFolders.isEmpty {
+                        Text("검색에서 제외할 폴더나 라이브러리를 추가하세요.")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    ForEach(store.excludedFolders) { rule in
+                        HStack {
+                            Image(nsImage: NSWorkspace.shared.icon(forFile: rule.url.path))
+                                .resizable()
+                                .frame(width: 20, height: 20)
+                            Text(rule.url.path)
+                                .lineLimit(1)
+                            Spacer()
+                            Button {
+                                store.removeExcludedFolder(rule)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+
+                Section("확장자") {
+                    if store.excludedExtensions.isEmpty {
+                        Text("제외할 파일 확장자를 추가하세요.")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    ForEach(store.excludedExtensions, id: \.self) { pathExtension in
+                        HStack {
+                            Image(systemName: "doc")
+                            Text(".\(pathExtension)")
+                                .monospaced()
+                            Spacer()
+                            Button {
+                                store.removeExcludedExtension(pathExtension)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+            }
+
+            HStack {
+                Button {
+                    addExcludedLocation()
+                } label: {
+                    Label("위치 추가", systemImage: "folder.badge.minus")
+                }
+
+                Spacer()
+
+                TextField("예: jpg, mp3", text: $excludedExtensionInput)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 160)
+                    .onSubmit(addExcludedExtension)
+
+                Button {
+                    addExcludedExtension()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .help("확장자 추가")
+                .disabled(excludedExtensionInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+    }
+
     private func folderList(
         title: String,
         items: [FolderRule],
@@ -241,8 +314,22 @@ struct SettingsView: View {
         chooseFolders().forEach { store.addScanFolder($0) }
     }
 
-    private func addExcludedFolder() {
-        chooseFolders().forEach { store.addExcludedFolder($0) }
+    private func addExcludedLocation() {
+        let panel = NSOpenPanel()
+        panel.message = "제외할 폴더나 사진·음악 라이브러리를 선택하세요."
+        panel.prompt = "제외"
+        panel.allowsMultipleSelection = true
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.treatsFilePackagesAsDirectories = false
+        if panel.runModal() == .OK {
+            panel.urls.forEach { store.addExcludedFolder($0) }
+        }
+    }
+
+    private func addExcludedExtension() {
+        store.addExcludedExtension(excludedExtensionInput)
+        excludedExtensionInput = ""
     }
 
     private func addBookmark() {

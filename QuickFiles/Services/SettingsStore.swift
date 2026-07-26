@@ -11,6 +11,10 @@ final class SettingsStore: ObservableObject {
         didSet { save() }
     }
 
+    @Published var excludedExtensions: [String] {
+        didSet { save() }
+    }
+
     @Published var bookmarks: [StoredBookmark] {
         didSet { save() }
     }
@@ -35,6 +39,7 @@ final class SettingsStore: ObservableObject {
            let decoded = try? JSONDecoder().decode(PersistedSettings.self, from: data) {
             self.scanFolders = decoded.scanFolders.map(Self.resolve)
             self.excludedFolders = decoded.excludedFolders.map(Self.resolve)
+            self.excludedExtensions = decoded.excludedExtensions ?? []
             self.bookmarks = decoded.bookmarks.map(Self.resolve)
             self.maxRecentFiles = decoded.maxRecentFiles
             let decodedHotKey = decoded.hotKey ?? .defaultValue
@@ -45,6 +50,7 @@ final class SettingsStore: ObservableObject {
         } else {
             self.scanFolders = Self.defaultScanFolders()
             self.excludedFolders = Self.defaultExcludedFolders()
+            self.excludedExtensions = []
             self.bookmarks = []
             self.maxRecentFiles = 40
             self.hotKey = .defaultValue
@@ -62,6 +68,15 @@ final class SettingsStore: ObservableObject {
         excludedFolders.append(FolderRule(url: url, bookmarkData: makeBookmarkData(for: url)))
     }
 
+    func addExcludedExtension(_ value: String) {
+        let normalized = Self.normalizeExtension(value)
+        guard !normalized.isEmpty,
+              !normalized.contains("/"),
+              !excludedExtensions.contains(normalized) else { return }
+        excludedExtensions.append(normalized)
+        excludedExtensions.sort()
+    }
+
     func addBookmark(_ url: URL) {
         guard !bookmarks.contains(where: { $0.url.standardizedFileURL == url.standardizedFileURL }) else { return }
         bookmarks.append(StoredBookmark(url: url, bookmarkData: makeBookmarkData(for: url)))
@@ -75,6 +90,10 @@ final class SettingsStore: ObservableObject {
         excludedFolders.removeAll { $0.id == rule.id }
     }
 
+    func removeExcludedExtension(_ value: String) {
+        excludedExtensions.removeAll { $0 == value }
+    }
+
     func removeBookmark(_ bookmark: StoredBookmark) {
         bookmarks.removeAll { $0.id == bookmark.id }
     }
@@ -83,6 +102,7 @@ final class SettingsStore: ObservableObject {
         let payload = PersistedSettings(
             scanFolders: scanFolders,
             excludedFolders: excludedFolders,
+            excludedExtensions: excludedExtensions,
             bookmarks: bookmarks,
             maxRecentFiles: maxRecentFiles,
             hotKey: hotKey
@@ -148,11 +168,19 @@ final class SettingsStore: ObservableObject {
 
         return paths.map { FolderRule(url: URL(fileURLWithPath: $0, isDirectory: true)) }
     }
+
+    private static func normalizeExtension(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            .lowercased()
+    }
 }
 
 private struct PersistedSettings: Codable {
     var scanFolders: [FolderRule]
     var excludedFolders: [FolderRule]
+    var excludedExtensions: [String]?
     var bookmarks: [StoredBookmark]
     var maxRecentFiles: Int
     var hotKey: HotKeyDefinition?

@@ -16,9 +16,11 @@ actor RecentFileScanner {
 
     func scan(
         folders: [FolderRule],
-        excludedFolders: [FolderRule]
+        excludedFolders: [FolderRule],
+        excludedExtensions: [String]
     ) -> [FileItem] {
         let excludedPaths = excludedFolders.map { normalizedDirectoryPath($0.url) }
+        let excludedExtensionSet = Set(excludedExtensions.map { $0.lowercased() })
         var scannedItems: [String: FileItem] = [:]
 
         for folder in folders {
@@ -27,6 +29,7 @@ actor RecentFileScanner {
                 folder.url,
                 resourceKeys: resourceKeys,
                 excludedPaths: excludedPaths,
+                excludedExtensions: excludedExtensionSet,
                 into: &scannedItems
             )
         }
@@ -40,10 +43,12 @@ actor RecentFileScanner {
     func applyChanges(
         _ changes: [FileSystemChange],
         folders: [FolderRule],
-        excludedFolders: [FolderRule]
+        excludedFolders: [FolderRule],
+        excludedExtensions: [String]
     ) -> [FileItem] {
         let scanPaths = folders.map { normalizedDirectoryPath($0.url) }
         let excludedPaths = excludedFolders.map { normalizedDirectoryPath($0.url) }
+        let excludedExtensionSet = Set(excludedExtensions.map { $0.lowercased() })
         let fileManager = FileManager.default
         var didMutate = false
 
@@ -63,7 +68,12 @@ actor RecentFileScanner {
                 continue
             }
 
-            guard isIncluded(url, scanPaths: scanPaths, excludedPaths: excludedPaths) else {
+            guard isIncluded(
+                url,
+                scanPaths: scanPaths,
+                excludedPaths: excludedPaths,
+                excludedExtensions: excludedExtensionSet
+            ) else {
                 didMutate = removeItemAndDescendants(at: path) || didMutate
                 continue
             }
@@ -75,6 +85,7 @@ actor RecentFileScanner {
                         url,
                         resourceKeys: resourceKeys,
                         excludedPaths: excludedPaths,
+                        excludedExtensions: excludedExtensionSet,
                         into: &itemsByPath
                     )
                     didMutate = itemsByPath.count != previousCount || didMutate
@@ -118,6 +129,7 @@ private func scanFolder(
     _ folder: URL,
     resourceKeys: Set<URLResourceKey>,
     excludedPaths: [String],
+    excludedExtensions: Set<String>,
     into itemsByPath: inout [String: FileItem]
 ) {
     guard !isExcluded(folder, excludedPaths: excludedPaths) else { return }
@@ -149,6 +161,7 @@ private func scanFolder(
             continue
         }
         guard values.isRegularFile == true, values.isHidden != true else { continue }
+        guard !excludedExtensions.contains(url.pathExtension.lowercased()) else { continue }
 
         itemsByPath[url.standardizedFileURL.path] = FileItem(
             url: url,
@@ -179,7 +192,12 @@ private func makeFileItem(url: URL, resourceKeys: Set<URLResourceKey>) -> FileIt
     )
 }
 
-private func isIncluded(_ url: URL, scanPaths: [String], excludedPaths: [String]) -> Bool {
+private func isIncluded(
+    _ url: URL,
+    scanPaths: [String],
+    excludedPaths: [String],
+    excludedExtensions: Set<String>
+) -> Bool {
     let path = normalizedDirectoryPath(url)
     guard let scanPath = scanPaths.first(where: { path == $0 || path.hasPrefix($0 + "/") }) else {
         return false
@@ -188,7 +206,9 @@ private func isIncluded(_ url: URL, scanPaths: [String], excludedPaths: [String]
     let containsHiddenComponent = relativePath
         .split(separator: "/")
         .contains { $0.hasPrefix(".") }
-    return !containsHiddenComponent && !isExcluded(url, excludedPaths: excludedPaths)
+    return !containsHiddenComponent
+        && !isExcluded(url, excludedPaths: excludedPaths)
+        && !excludedExtensions.contains(url.pathExtension.lowercased())
 }
 
 private func isExcluded(_ url: URL, excludedPaths: [String]) -> Bool {

@@ -177,6 +177,13 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             }
             .store(in: &cancellables)
 
+        store.$excludedExtensions
+            .dropFirst()
+            .sink { [weak self] _ in
+                self?.refresh(showLoading: false)
+            }
+            .store(in: &cancellables)
+
         store.$maxRecentFiles
             .dropFirst()
             .sink { [weak self] limit in
@@ -228,6 +235,11 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             return false
         }
 
+        let pathExtension = URL(fileURLWithPath: path).pathExtension.lowercased()
+        if store.excludedExtensions.contains(pathExtension) {
+            return false
+        }
+
         return !path
             .dropFirst(scanPath.count)
             .split(separator: "/")
@@ -254,6 +266,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
         let folders = store.scanFolders
         let excluded = store.excludedFolders
+        let excludedExtensions = store.excludedExtensions
         let limit = store.maxRecentFiles
 
         refreshTask = Task { [weak self] in
@@ -263,12 +276,14 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
                 scanned = await scanner.applyChanges(
                     changes,
                     folders: folders,
-                    excludedFolders: excluded
+                    excludedFolders: excluded,
+                    excludedExtensions: excludedExtensions
                 )
             } else {
                 scanned = await scanner.scan(
                     folders: folders,
-                    excludedFolders: excluded
+                    excludedFolders: excluded,
+                    excludedExtensions: excludedExtensions
                 )
             }
 

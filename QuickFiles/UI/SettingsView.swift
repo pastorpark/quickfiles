@@ -47,9 +47,12 @@ struct SettingsView: View {
     @State private var hotKeyErrorMessage: String?
 
     private var generalSettings: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("일반")
-                .font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 16) {
+            SettingsPageHeader(
+                title: "일반",
+                subtitle: "QuickFiles의 시작 동작을 관리합니다.",
+                systemImage: "slider.horizontal.3"
+            )
 
             Toggle(
                 "로그인 시 QuickFiles 자동 실행",
@@ -58,6 +61,8 @@ struct SettingsView: View {
                     set: { launchAtLogin.setEnabled($0) }
                 )
             )
+            .padding(12)
+            .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             if launchAtLogin.requiresApproval {
                 Label("시스템 설정에서 QuickFiles 실행을 허용해야 합니다.", systemImage: "exclamationmark.triangle")
@@ -76,6 +81,14 @@ struct SettingsView: View {
             }
 
             Spacer()
+
+            // Flaticon free license: attribution with a link is required.
+            HStack(spacing: 4) {
+                Text("앱 아이콘:")
+                Link("종이 아이콘 제작자: Wyasa.Design - Flaticon", destination: URL(string: "https://www.flaticon.com/kr/free-icons/")!)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
         .padding(20)
         .onAppear {
@@ -87,9 +100,12 @@ struct SettingsView: View {
     }
 
     private var hotKeySettings: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("단축키")
-                .font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 16) {
+            SettingsPageHeader(
+                title: "단축키",
+                subtitle: "어디서나 검색 패널을 여는 키 조합입니다.",
+                systemImage: "keyboard"
+            )
 
             HotKeyRecorderView(hotKey: store.hotKey) { newHotKey in
                 updateHotKey(newHotKey)
@@ -153,14 +169,17 @@ struct SettingsView: View {
 
     private var bookmarkList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("북마크")
-                .font(.title2.weight(.semibold))
+            SettingsPageHeader(
+                title: "북마크",
+                subtitle: "자주 여는 파일과 폴더를 패널에 고정합니다.",
+                systemImage: "bookmark.fill"
+            )
 
             List {
                 ForEach(store.bookmarks) { bookmark in
                     HStack {
                         Image(systemName: "bookmark.fill")
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(Color.accentColor)
                         Text(bookmark.url.path)
                             .lineLimit(1)
                         Spacer()
@@ -173,6 +192,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .listStyle(.inset)
 
             HStack {
                 Button {
@@ -187,8 +207,11 @@ struct SettingsView: View {
 
     private var exclusionSettings: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("제외 규칙")
-                .font(.title2.weight(.semibold))
+            SettingsPageHeader(
+                title: "제외 규칙",
+                subtitle: "검색에서 숨길 위치와 파일 형식을 선택합니다.",
+                systemImage: "line.3.horizontal.decrease.circle"
+            )
 
             List {
                 Section("위치") {
@@ -237,6 +260,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .listStyle(.inset)
 
             HStack {
                 Button {
@@ -271,8 +295,11 @@ struct SettingsView: View {
         removeAction: @escaping (FolderRule) -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.title2.weight(.semibold))
+            SettingsPageHeader(
+                title: title,
+                subtitle: "최근 변경 파일을 찾을 위치를 관리합니다.",
+                systemImage: "folder.fill"
+            )
 
             List {
                 if items.isEmpty {
@@ -296,6 +323,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .listStyle(.inset)
 
             HStack {
                 Button {
@@ -346,6 +374,31 @@ struct SettingsView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         return panel.runModal() == .OK ? panel.urls : []
+    }
+}
+
+
+private struct SettingsPageHeader: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 34, height: 34)
+                .background(Color.accentColor.opacity(0.11), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.title2.weight(.semibold))
+                Text(subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 

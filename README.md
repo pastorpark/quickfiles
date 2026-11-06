@@ -112,7 +112,8 @@ QuickFiles/
     PanelController.swift                패널 표시, 검색 결과 갱신, 파일 작업
     SettingsView.swift                   설정 화면
     SettingsWindowController.swift       설정 창 관리
-  Assets.xcassets/                       앱 아이콘과 에셋
+  Assets.xcassets/                       앱 아이콘, 메뉴 막대 아이콘 에셋
+Design/AppIcon/                          아이콘 원본과 생성 스크립트
 QuickFiles.xcodeproj/                    Xcode 프로젝트
 ```
 
@@ -126,6 +127,14 @@ QuickFiles.xcodeproj/                    Xcode 프로젝트
 - 현재 위치와 같은 폴더를 이동 대상으로 고르면 아무 작업도 하지 않습니다.
 - 앱은 App Sandbox를 사용하지 않습니다. 북마크 데이터는 이동하거나 이름이 바뀐 항목을 다시 찾는 데 쓰이며, 오래된 북마크는 실행 시 자동으로 갱신됩니다.
 - `settings.json`을 읽을 수 없으면 기본값으로 초기화하기 전에 같은 폴더에 `settings.backup-<날짜>.json`으로 백업합니다.
+
+## 아이콘 출처
+
+앱 아이콘과 메뉴 막대 아이콘은 Flaticon의 무료 아이콘을 사용합니다(무료 라이선스, 출처 표기 필수).
+
+- <a href="https://www.flaticon.com/kr/free-icons/" title="종이 아이콘">종이 아이콘 제작자: Wyasa.Design - Flaticon</a>
+- 원본: `Design/AppIcon/Source/flaticon-file-and-folder-9099437.png`
+- 아이콘 다시 만들기: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift Design/AppIcon/compose_icon.swift`
 
 ## 라이선스
 

@@ -44,15 +44,16 @@ struct QuickAccessView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+            Divider().opacity(0.55)
             recentGrid
-            Divider()
+            Divider().opacity(0.55)
             bookmarkStrip
-            Divider()
+            Divider().opacity(0.55)
             footer
         }
         .frame(width: 760, height: 380)
         .background(.regularMaterial)
+        .tint(QuickFilesTheme.accent)
         .background(
             KeyEventView { event in
                 handleKeyEvent(event)
@@ -82,14 +83,12 @@ struct QuickAccessView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.accentColor)
+        HStack(spacing: 14) {
+            BrandGlyph()
 
             TextField("파일 이름이나 폴더 경로 검색", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 22, weight: .medium))
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
 
             if controller.isLoading {
                 ProgressView()
@@ -100,22 +99,25 @@ struct QuickAccessView: View {
                 controller.hide()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .bold))
-                    .frame(width: 28, height: 28)
+                    .font(.system(size: 11, weight: .bold))
+                    .frame(width: 26, height: 26)
+                    .background(Color.secondary.opacity(0.11), in: Circle())
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("닫기")
+            .accessibilityLabel("닫기")
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .background(Color.accentColor.opacity(0.035))
         .background(WindowDragRegion())
     }
 
     private var recentGrid: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 10) {
+                LazyHStack(spacing: 12) {
                     ForEach(recentItems) { item in
                         FileTile(item: item, isSelected: item.id == selectedItemID)
                             .id(item.id)
@@ -135,8 +137,8 @@ struct QuickAccessView: View {
                             }
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
             }
             .onChange(of: selectedItemID) { itemID in
                 guard let itemID, recentItems.contains(where: { $0.id == itemID }) else { return }
@@ -146,34 +148,43 @@ struct QuickAccessView: View {
             }
             .overlay {
                 if recentItems.isEmpty {
-                    VStack(spacing: 8) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 28))
-                            .foregroundStyle(.secondary)
+                    VStack(spacing: 6) {
+                        Image(systemName: searchTerms.isEmpty ? "clock" : "magnifyingglass")
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundStyle(QuickFilesTheme.accent)
                         Text(searchTerms.isEmpty ? "표시할 변경 파일이 없습니다" : "검색 결과가 없습니다")
-                            .font(.headline)
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
                         Text("검색 폴더와 제외 폴더는 설정에서 관리할 수 있습니다.")
-                            .font(.callout)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
         }
     }
 
     private var bookmarkStrip: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("북마크")
-                    .font(.system(size: 13, weight: .semibold))
+                Label("북마크", systemImage: "bookmark.fill")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(QuickFilesTheme.accent)
+                Text("\(bookmarkItems.count)")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.1), in: Capsule())
                 Spacer()
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 10)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 10) {
+                LazyHStack(spacing: 8) {
                     ForEach(bookmarkItems) { item in
                         BookmarkTile(item: item, isSelected: item.id == selectedItemID)
                             .id(item.id)
@@ -198,22 +209,25 @@ struct QuickAccessView: View {
                     } label: {
                         VStack(spacing: 7) {
                             Image(systemName: "plus")
-                                .font(.system(size: 18, weight: .semibold))
-                                .frame(width: 46, height: 46)
-                                .background(Color.secondary.opacity(0.12))
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(QuickFilesTheme.accent)
+                                .frame(width: 42, height: 42)
+                                .background(Color.accentColor.opacity(0.1))
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             Text("추가")
                                 .font(.caption)
                         }
                         .frame(width: 72, height: 82)
                     }
                     .buttonStyle(.plain)
+                    .help("북마크 추가")
                 }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
             }
         }
         .frame(height: 112)
+        .background(Color.secondary.opacity(0.025))
     }
 
     private var footer: some View {
@@ -229,16 +243,23 @@ struct QuickAccessView: View {
 
             Spacer()
 
+            Text("↵ 열기   ⌘↵ Finder")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.tertiary)
+
             Button {
                 controller.refresh()
             } label: {
                 Image(systemName: "arrow.clockwise")
             }
             .help("새로고침")
+            .accessibilityLabel("새로고침")
         }
         .buttonStyle(.bordered)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .controlSize(.small)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(Color.accentColor.opacity(0.025))
         .background(WindowDragRegion())
     }
 
@@ -362,13 +383,13 @@ private struct FileTile: View {
     let isSelected: Bool
 
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 6) {
             FilePreviewIcon(url: item.url, version: item.activityAt)
                 .frame(width: 58, height: 58)
 
             Text(item.displayName)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(isSelected ? .white : .primary)
+                .foregroundStyle(.primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .frame(height: 32, alignment: .top)
@@ -376,23 +397,29 @@ private struct FileTile: View {
             if let date = item.activityAt {
                 Text(date.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated)))
                     .font(.caption2)
-                    .foregroundStyle(isSelected ? .white.opacity(0.82) : .secondary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
-        .frame(width: 110, height: 124, alignment: .top)
-        .padding(.vertical, 8)
+        .frame(width: 108, height: 122, alignment: .top)
+        .padding(.vertical, 7)
         .background(tileBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .stroke(isSelected ? QuickFilesTheme.accent.opacity(0.55) : Color.clear, lineWidth: 1.5)
+        }
+        .shadow(color: isSelected ? QuickFilesTheme.accent.opacity(0.14) : .clear, radius: 7, y: 2)
     }
 
     @ViewBuilder
     private var tileBackground: some View {
         if isSelected {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.accentColor.opacity(0.88))
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Color.accentColor.opacity(0.14))
         } else {
-            Color.clear
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.38))
         }
     }
 }
@@ -402,19 +429,19 @@ private struct BookmarkTile: View {
     let isSelected: Bool
 
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 6) {
             FilePreviewIcon(url: item.url, version: item.activityAt)
                 .frame(width: 46, height: 46)
                 .overlay(alignment: .topTrailing) {
                     Image(systemName: "bookmark.fill")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(QuickFilesTheme.accent)
                         .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
                 }
 
             Text(item.displayName)
                 .font(.caption)
-                .foregroundStyle(isSelected ? .white : .primary)
+                .foregroundStyle(.primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .frame(height: 28, alignment: .top)
@@ -422,17 +449,39 @@ private struct BookmarkTile: View {
         .frame(width: 76, height: 82, alignment: .top)
         .padding(.vertical, 4)
         .background(tileBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .stroke(isSelected ? QuickFilesTheme.accent.opacity(0.5) : Color.clear, lineWidth: 1.25)
+        }
     }
 
     @ViewBuilder
     private var tileBackground: some View {
         if isSelected {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.accentColor.opacity(0.88))
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(Color.accentColor.opacity(0.14))
         } else {
             Color.clear
         }
+    }
+}
+
+private enum QuickFilesTheme {
+    static let accent = Color.accentColor
+}
+
+private struct BrandGlyph: View {
+    var body: some View {
+        Image("MenuBarIcon")
+            .renderingMode(.template)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: 26, height: 26)
+            .foregroundStyle(.primary)
+            .frame(width: 38, height: 38)
+            .accessibilityHidden(true)
     }
 }
 

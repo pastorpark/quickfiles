@@ -22,7 +22,9 @@ struct FileSystemChange: Sendable {
     }
 }
 
-final class FileSystemEventMonitor {
+/// All mutable state (`stream`, `handler`, pending buffers, `deliveryWorkItem`) is only
+/// touched on `queue`, which also serves the FSEvents callbacks, so cross-thread use is safe.
+final class FileSystemEventMonitor: @unchecked Sendable {
     typealias Handler = @Sendable ([FileSystemChange], Bool) -> Void
 
     private let queue = DispatchQueue(label: "QuickFiles.FileEvents", qos: .utility)

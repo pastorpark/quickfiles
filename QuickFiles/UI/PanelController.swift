@@ -151,13 +151,28 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     }
 
     func move(_ item: FileItem, to folder: URL) {
-        let destination = availableDestinationURL(for: item.url, in: folder)
-        do {
-            try FileManager.default.moveItem(at: item.url, to: destination)
+        let sourceParent = item.url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.path
+        let destinationFolder = folder.resolvingSymlinksInPath().standardizedFileURL.path
+        guard sourceParent != destinationFolder else {
             hide()
-        } catch {
-            NSSound.beep()
+            return
         }
+
+        var startIndex = 1
+        for _ in 0..<5 {
+            let destination = availableDestinationURL(for: item.url, in: folder, startingAt: startIndex)
+            do {
+                try FileManager.default.moveItem(at: item.url, to: destination.url)
+                hide()
+                return
+            } catch let error as CocoaError where error.code == .fileWriteFileExists {
+                // Destination appeared between the existence check and the move; try the next suffix.
+                startIndex = destination.index + 1
+            } catch {
+                break
+            }
+        }
+        NSSound.beep()
     }
 
     private func observeSettings() {
@@ -316,20 +331,25 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         performRefresh(changes: changes, showLoading: false)
     }
 
-    private func availableDestinationURL(for source: URL, in folder: URL) -> URL {
-        let fileManager = FileManager.default
-        let baseName = source.deletingPathExtension().lastPathComponent
-        let pathExtension = source.pathExtension
-        var candidate = folder.appendingPathComponent(source.lastPathComponent)
-        var index = 2
-
-        while fileManager.fileExists(atPath: candidate.path) {
-            let name = pathExtension.isEmpty ? "\(baseName) \(index)" : "\(baseName) \(index).\(pathExtension)"
-            candidate = folder.appendingPathComponent(name)
+    /// Finds the first non-existing destination starting at `startIndex`
+    /// (1 = original name, 2+ = "name N.ext") and returns it with the index used.
+    private func availableDestinationURL(for source: URL, in folder: URL, startingAt startIndex: Int) -> (url: URL, index: Int) {
+        var index = startIndex
+        while true {
+            let candidate = destinationURL(for: source, in: folder, index: index)
+            if !FileManager.default.fileExists(atPath: candidate.path) {
+                return (candidate, index)
+            }
             index += 1
         }
+    }
 
-        return candidate
+    private func destinationURL(for source: URL, in folder: URL, index: Int) -> URL {
+        guard index > 1 else { return folder.appendingPathComponent(source.lastPathComponent) }
+        let baseName = source.deletingPathExtension().lastPathComponent
+        let pathExtension = source.pathExtension
+        let name = pathExtension.isEmpty ? "\(baseName) \(index)" : "\(baseName) \(index).\(pathExtension)"
+        return folder.appendingPathComponent(name)
     }
 
     private func centerPanel() {

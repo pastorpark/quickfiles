@@ -122,7 +122,7 @@ struct SettingsView: View {
             return
         }
 
-        if isLikelyReservedShortcut(newHotKey) {
+        if newHotKey != .defaultValue, isLikelyReservedShortcut(newHotKey) {
             hotKeyErrorMessage = "macOS나 대부분의 앱에서 이미 쓰는 단축키입니다."
             return
         }
@@ -137,10 +137,8 @@ struct SettingsView: View {
 
     private func isLikelyReservedShortcut(_ hotKey: HotKeyDefinition) -> Bool {
         let command = UInt32(cmdKey)
-        let commandShift = UInt32(cmdKey | shiftKey)
         let commandOption = UInt32(cmdKey | optionKey)
         let reserved: Set<HotKeyDefinition> = [
-            HotKeyDefinition(keyCode: UInt32(kVK_ANSI_Slash), modifierFlags: commandShift),
             HotKeyDefinition(keyCode: UInt32(kVK_Space), modifierFlags: command),
             HotKeyDefinition(keyCode: UInt32(kVK_Space), modifierFlags: commandOption),
             HotKeyDefinition(keyCode: UInt32(kVK_Tab), modifierFlags: command),

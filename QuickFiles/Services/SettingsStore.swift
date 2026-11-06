@@ -37,22 +37,32 @@ final class SettingsStore: ObservableObject {
 
         if let data = try? Data(contentsOf: fileURL),
            let decoded = try? JSONDecoder().decode(PersistedSettings.self, from: data) {
-            self.scanFolders = decoded.scanFolders.map(Self.resolve)
-            self.excludedFolders = decoded.excludedFolders.map(Self.resolve)
-            self.excludedExtensions = decoded.excludedExtensions ?? []
-            self.bookmarks = decoded.bookmarks.map(Self.resolve)
+            let storedScanFolders = decoded.scanFolders ?? Self.defaultScanFolders()
+            let storedExcludedFolders = decoded.excludedFolders ?? Self.defaultExcludedFolders()
+            let scanFolders = storedScanFolders.map(Self.resolve)
+            let excludedFolders = storedExcludedFolders.map(Self.resolve)
+            let bookmarks = decoded.bookmarks.map(Self.resolve)
+            self.scanFolders = scanFolders
+            self.excludedFolders = excludedFolders
+            self.excludedExtensions = decoded.excludedExtensions
+            self.bookmarks = bookmarks
             self.maxRecentFiles = decoded.maxRecentFiles
-            let decodedHotKey = decoded.hotKey ?? .defaultValue
+            let decodedHotKey = decoded.hotKey
             self.hotKey = decodedHotKey == .legacyOptionSpace ? .defaultValue : decodedHotKey
-            if decodedHotKey == .legacyOptionSpace {
+
+            let refreshedBookmarkData = scanFolders.map(\.bookmarkData) != storedScanFolders.map(\.bookmarkData)
+                || excludedFolders.map(\.bookmarkData) != storedExcludedFolders.map(\.bookmarkData)
+                || bookmarks.map(\.bookmarkData) != decoded.bookmarks.map(\.bookmarkData)
+            if decodedHotKey == .legacyOptionSpace || refreshedBookmarkData || decoded.wasMigrated {
                 save()
             }
         } else {
+            Self.backUpUnreadableSettings(at: fileURL)
             self.scanFolders = Self.defaultScanFolders()
             self.excludedFolders = Self.defaultExcludedFolders()
             self.excludedExtensions = []
             self.bookmarks = []
-            self.maxRecentFiles = 40
+            self.maxRecentFiles = PersistedSettings.defaultMaxRecentFiles
             self.hotKey = .defaultValue
             save()
         }
@@ -116,29 +126,47 @@ final class SettingsStore: ObservableObject {
     }
 
     private static func resolve(_ rule: FolderRule) -> FolderRule {
-        guard let bookmarkData = rule.bookmarkData else { return rule }
-        var stale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: bookmarkData,
-            options: [.withSecurityScope],
-            relativeTo: nil,
-            bookmarkDataIsStale: &stale
-        ) else { return rule }
-
-        return FolderRule(id: rule.id, url: url, bookmarkData: stale ? nil : bookmarkData)
+        guard let (url, data) = resolveBookmark(rule.bookmarkData) else { return rule }
+        return FolderRule(id: rule.id, url: url, bookmarkData: data)
     }
 
     private static func resolve(_ bookmark: StoredBookmark) -> StoredBookmark {
-        guard let bookmarkData = bookmark.bookmarkData else { return bookmark }
+        guard let (url, data) = resolveBookmark(bookmark.bookmarkData) else { return bookmark }
+        return StoredBookmark(id: bookmark.id, url: url, bookmarkData: data)
+    }
+
+    /// Resolves stored bookmark data, regenerating it when the system reports it as stale
+    /// so the refreshed data can be persisted. QuickFiles is not sandboxed, so the bookmarks
+    /// are used to follow moved/renamed items, not to obtain security-scoped access.
+    private static func resolveBookmark(_ bookmarkData: Data?) -> (URL, Data?)? {
+        guard let bookmarkData else { return nil }
         var stale = false
         guard let url = try? URL(
             resolvingBookmarkData: bookmarkData,
             options: [.withSecurityScope],
             relativeTo: nil,
             bookmarkDataIsStale: &stale
-        ) else { return bookmark }
+        ) else { return nil }
 
-        return StoredBookmark(id: bookmark.id, url: url, bookmarkData: stale ? nil : bookmarkData)
+        guard stale else { return (url, bookmarkData) }
+        let refreshed = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+        return (url, refreshed ?? bookmarkData)
+    }
+
+    private static func backUpUnreadableSettings(at fileURL: URL) {
+        let manager = FileManager.default
+        guard manager.fileExists(atPath: fileURL.path) else { return }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let backupURL = fileURL.deletingLastPathComponent()
+            .appendingPathComponent("settings.backup-\(formatter.string(from: Date())).json")
+        do {
+            try manager.copyItem(at: fileURL, to: backupURL)
+            NSLog("QuickFiles: unreadable settings.json backed up to \(backupURL.path)")
+        } catch {
+            NSLog("QuickFiles: failed to back up unreadable settings.json: \(error)")
+        }
     }
 
     private static func defaultScanFolders() -> [FolderRule] {
@@ -178,10 +206,56 @@ final class SettingsStore: ObservableObject {
 }
 
 private struct PersistedSettings: Codable {
-    var scanFolders: [FolderRule]
-    var excludedFolders: [FolderRule]
-    var excludedExtensions: [String]?
+    static let defaultMaxRecentFiles = 40
+
+    /// nil only when decoding a file that lacks the key; the store then falls back to its defaults.
+    var scanFolders: [FolderRule]?
+    var excludedFolders: [FolderRule]?
+    var excludedExtensions: [String]
     var bookmarks: [StoredBookmark]
     var maxRecentFiles: Int
-    var hotKey: HotKeyDefinition?
+    var hotKey: HotKeyDefinition
+    /// True when a field was missing and filled with a default, so the file should be rewritten.
+    var wasMigrated = false
+
+    private enum CodingKeys: String, CodingKey {
+        case scanFolders, excludedFolders, excludedExtensions, bookmarks, maxRecentFiles, hotKey
+    }
+
+    init(
+        scanFolders: [FolderRule],
+        excludedFolders: [FolderRule],
+        excludedExtensions: [String],
+        bookmarks: [StoredBookmark],
+        maxRecentFiles: Int,
+        hotKey: HotKeyDefinition
+    ) {
+        self.scanFolders = scanFolders
+        self.excludedFolders = excludedFolders
+        self.excludedExtensions = excludedExtensions
+        self.bookmarks = bookmarks
+        self.maxRecentFiles = maxRecentFiles
+        self.hotKey = hotKey
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let scanFolders = try container.decodeIfPresent([FolderRule].self, forKey: .scanFolders)
+        let excludedFolders = try container.decodeIfPresent([FolderRule].self, forKey: .excludedFolders)
+        let excludedExtensions = try container.decodeIfPresent([String].self, forKey: .excludedExtensions)
+        let bookmarks = try container.decodeIfPresent([StoredBookmark].self, forKey: .bookmarks)
+        let maxRecentFiles = try container.decodeIfPresent(Int.self, forKey: .maxRecentFiles)
+        let hotKey = try container.decodeIfPresent(HotKeyDefinition.self, forKey: .hotKey)
+
+        self.scanFolders = scanFolders
+        self.excludedFolders = excludedFolders
+        self.excludedExtensions = excludedExtensions ?? []
+        self.bookmarks = bookmarks ?? []
+        self.maxRecentFiles = maxRecentFiles ?? Self.defaultMaxRecentFiles
+        self.hotKey = hotKey ?? .defaultValue
+        self.wasMigrated = [
+            scanFolders == nil, excludedFolders == nil, excludedExtensions == nil,
+            bookmarks == nil, maxRecentFiles == nil, hotKey == nil
+        ].contains(true)
+    }
 }

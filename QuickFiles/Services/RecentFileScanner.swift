@@ -79,7 +79,8 @@ actor RecentFileScanner {
             }
 
             if isDirectory.boolValue {
-                if change.wasCreated || change.wasRenamed {
+                let isPackage = (try? url.resourceValues(forKeys: [.isPackageKey]))?.isPackage == true
+                if !isPackage, change.wasCreated || change.wasRenamed {
                     let previousCount = itemsByPath.count
                     scanFolder(
                         url,
@@ -209,6 +210,23 @@ private func isIncluded(
     return !containsHiddenComponent
         && !isExcluded(url, excludedPaths: excludedPaths)
         && !excludedExtensions.contains(url.pathExtension.lowercased())
+        && !hasPackageAncestor(url, below: scanPath)
+}
+
+/// Mirrors `.skipsPackageDescendants` for incremental FSEvents updates:
+/// true when any directory between the scan root and `url` is a package (e.g. `Foo.app`).
+private func hasPackageAncestor(_ url: URL, below scanPath: String) -> Bool {
+    var ancestor = url.standardizedFileURL.deletingLastPathComponent()
+    while true {
+        let ancestorPath = normalizedDirectoryPath(ancestor)
+        guard ancestorPath.count > scanPath.count, ancestorPath.hasPrefix(scanPath + "/") else {
+            return false
+        }
+        if (try? ancestor.resourceValues(forKeys: [.isPackageKey]))?.isPackage == true {
+            return true
+        }
+        ancestor = ancestor.deletingLastPathComponent()
+    }
 }
 
 private func isExcluded(_ url: URL, excludedPaths: [String]) -> Bool {

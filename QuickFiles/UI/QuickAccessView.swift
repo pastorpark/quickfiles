@@ -262,6 +262,12 @@ struct QuickAccessView: View {
     private func handleKeyEvent(_ event: NSEvent) -> Bool {
         guard event.type == .keyDown, controller.isQuickPanelActive else { return false }
 
+        // Let the input method finish composing (e.g. Hangul) before treating
+        // Return/arrow keys as panel navigation.
+        if let textView = NSApp.keyWindow?.firstResponder as? NSTextView, textView.hasMarkedText() {
+            return false
+        }
+
         switch event.keyCode {
         case 123:
             moveSelection(by: -1)

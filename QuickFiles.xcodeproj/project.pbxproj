@@ -19,6 +19,7 @@
 		A1B2C3D4E5F6020000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000010 /* Assets.xcassets */; };
 		A1B2C3D4E5F6020000000011 /* FileSystemEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000011 /* FileSystemEventMonitor.swift */; };
 		A1B2C3D4E5F6020000000012 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000012 /* LaunchAtLoginController.swift */; };
+		A1B2C3D4E5F6020000000013 /* SelectionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000013 /* SelectionModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +36,7 @@
 		A1B2C3D4E5F6010000000011 /* FileSystemEventMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemEventMonitor.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010000000012 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6030000000001 /* QuickFiles.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuickFiles.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D4E5F6010000000013 /* SelectionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,6 +73,7 @@
 		A1B2C3D4E5F6050000000003 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F6010000000013 /* SelectionModel.swift */,
 				A1B2C3D4E5F6010000000002 /* AppModels.swift */,
 			);
 			path = Models;
@@ -176,6 +179,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D4E5F6020000000013 /* SelectionModel.swift in Sources */,
 				A1B2C3D4E5F6020000000001 /* QuickFilesApp.swift in Sources */,
 				A1B2C3D4E5F6020000000002 /* AppModels.swift in Sources */,
 				A1B2C3D4E5F6020000000003 /* HotKeyController.swift in Sources */,

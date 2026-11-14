@@ -41,6 +41,25 @@ struct QuickAccessView: View {
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
                 .focused($isSearchFocused)
 
+            if !model.query.isEmpty {
+                Text("\(model.snapshot.recentItems.count + model.snapshot.bookmarkItems.count)개")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+
+                Button {
+                    model.query = ""
+                    isSearchFocused = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("검색어 지우기")
+                .accessibilityLabel("검색어 지우기")
+            }
+
             if controller.isLoading {
                 ProgressView()
                     .controlSize(.small)
@@ -308,6 +327,16 @@ struct QuickAccessView: View {
         menu.addItem(.separator())
         menu.addItem(ClosureMenuItem(title: "이동…\(suffix)") {
             moveSelection()
+        })
+        menu.addItem(.separator())
+
+        let allBookmarked = items.allSatisfy { store.isBookmarked($0.url) }
+        menu.addItem(ClosureMenuItem(title: allBookmarked ? "북마크에서 제거\(suffix)" : "북마크에 추가\(suffix)") { [store] in
+            if allBookmarked {
+                items.forEach { store.removeBookmark(for: $0.url) }
+            } else {
+                items.forEach { store.addBookmark($0.url) }
+            }
         })
         return menu
     }

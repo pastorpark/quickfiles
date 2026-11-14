@@ -101,6 +101,16 @@ final class SettingsStore: ObservableObject {
         bookmarks.append(StoredBookmark(url: url, bookmarkData: makeBookmarkData(for: url)))
     }
 
+    func isBookmarked(_ url: URL) -> Bool {
+        let path = url.standardizedFileURL.path
+        return bookmarks.contains { $0.url.standardizedFileURL.path == path }
+    }
+
+    func removeBookmark(for url: URL) {
+        let path = url.standardizedFileURL.path
+        bookmarks.removeAll { $0.url.standardizedFileURL.path == path }
+    }
+
     func removeScanFolder(_ rule: FolderRule) {
         scanFolders.removeAll { $0.id == rule.id }
     }

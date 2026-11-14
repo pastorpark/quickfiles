@@ -212,29 +212,44 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         panel?.makeFirstResponder(nil)
     }
 
-    func move(_ item: FileItem, to folder: URL) {
-        let sourceParent = item.url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.path
-        let destinationFolder = folder.resolvingSymlinksInPath().standardizedFileURL.path
-        guard sourceParent != destinationFolder else {
+    /// Moves the items, then hides the panel when nothing failed or reports the failure inside the panel.
+    func moveAndReport(_ items: [FileItem], to folder: URL) async {
+        let result = await move(items, to: folder)
+
+        guard !result.failed.isEmpty else {
             hide()
             return
         }
 
-        var startIndex = 1
-        for _ in 0..<5 {
-            let destination = availableDestinationURL(for: item.url, in: folder, startingAt: startIndex)
-            do {
-                try FileManager.default.moveItem(at: item.url, to: destination.url)
-                hide()
-                return
-            } catch let error as CocoaError where error.code == .fileWriteFileExists {
-                // Destination appeared between the existence check and the move; try the next suffix.
-                startIndex = destination.index + 1
-            } catch {
-                break
-            }
+        _ = runModal { () -> NSApplication.ModalResponse in
+            let alert = NSAlert()
+            alert.messageText = "\(result.moved.count)개 이동, \(result.failed.count)개 실패"
+            alert.informativeText = result.failed.first?.error.localizedDescription ?? ""
+            alert.addButton(withTitle: "확인")
+            return alert.runModal()
         }
-        NSSound.beep()
+    }
+
+    /// Runs the plan on a background task so large / cross-volume moves don't block the UI.
+    func move(_ items: [FileItem], to folder: URL) async -> BatchMoveResult {
+        let plan = Self.planMove(items.map(\.url), to: folder)
+        var result = BatchMoveResult(skipped: plan.skipped)
+        let toMove = plan.toMove
+        let outcome = await Task.detached(priority: .userInitiated) { () -> BatchMoveOutcome in
+            var outcome = BatchMoveOutcome()
+            for url in toMove {
+                do {
+                    outcome.moved.append(try PanelController.moveFile(url, into: folder))
+                } catch {
+                    outcome.failed.append((url, error))
+                }
+            }
+            return outcome
+        }.value
+        result.moved = outcome.moved
+        result.failed = outcome.failed
+        refresh(showLoading: false)
+        return result
     }
 
     private func observeSettings() {
@@ -395,7 +410,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     /// Finds the first non-existing destination starting at `startIndex`
     /// (1 = original name, 2+ = "name N.ext") and returns it with the index used.
-    private func availableDestinationURL(for source: URL, in folder: URL, startingAt startIndex: Int) -> (url: URL, index: Int) {
+    nonisolated private static func availableDestinationURL(for source: URL, in folder: URL, startingAt startIndex: Int) -> (url: URL, index: Int) {
         var index = startIndex
         while true {
             let candidate = destinationURL(for: source, in: folder, index: index)
@@ -406,12 +421,38 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         }
     }
 
-    private func destinationURL(for source: URL, in folder: URL, index: Int) -> URL {
+    nonisolated private static func destinationURL(for source: URL, in folder: URL, index: Int) -> URL {
         guard index > 1 else { return folder.appendingPathComponent(source.lastPathComponent) }
         let baseName = source.deletingPathExtension().lastPathComponent
         let pathExtension = source.pathExtension
         let name = pathExtension.isEmpty ? "\(baseName) \(index)" : "\(baseName) \(index).\(pathExtension)"
         return folder.appendingPathComponent(name)
+    }
+
+    /// Moves `source` into `folder`, picking "name 2.ext", "name 3.ext"… on collisions, retrying up to 5 times
+    /// when the destination appears mid-move (CocoaError.fileWriteFileExists). Returns the final URL.
+    nonisolated private static func moveFile(_ source: URL, into folder: URL) throws -> URL {
+        var startIndex = 1
+        var lastError: Error?
+        for _ in 0..<5 {
+            let destination = availableDestinationURL(for: source, in: folder, startingAt: startIndex)
+            do {
+                try FileManager.default.moveItem(at: source, to: destination.url)
+                return destination.url
+            } catch let error as CocoaError where error.code == .fileWriteFileExists {
+                // Destination appeared between the existence check and the move; try the next suffix.
+                lastError = error
+                startIndex = destination.index + 1
+            } catch {
+                throw error
+            }
+        }
+
+        guard let lastError else {
+            // Unreachable: every attempt either moves the file, advances the suffix or throws.
+            throw CocoaError(.fileWriteFileExists)
+        }
+        throw lastError
     }
 
     // MARK: - Batch helpers
@@ -430,6 +471,52 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             urls.append(item.url)
         }
         return urls
+    }
+
+    /// Pure planning (no file system writes): splits the selection into items to move and items to skip.
+    ///
+    /// - Items already in the destination folder, and folders that contain the destination, are skipped.
+    /// - Items whose ancestor folder is part of the list are dropped: they travel with that folder.
+    nonisolated static func planMove(_ urls: [URL], to folder: URL) -> (toMove: [URL], skipped: [URL]) {
+        let destinationPath = folder.resolvingSymlinksInPath().standardizedFileURL.path
+
+        var seenPaths = Set<String>()
+        var unique: [URL] = []
+        unique.reserveCapacity(urls.count)
+        for url in urls {
+            guard seenPaths.insert(url.standardizedFileURL.path).inserted else { continue }
+            unique.append(url)
+        }
+
+        let itemPaths = unique.map { $0.resolvingSymlinksInPath().standardizedFileURL.path }
+
+        var toMove: [URL] = []
+        var skipped: [URL] = []
+        toMove.reserveCapacity(unique.count)
+
+        for (offset, url) in unique.enumerated() {
+            let itemPath = itemPaths[offset]
+
+            let parentPath = url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.path
+            guard parentPath != destinationPath else {
+                skipped.append(url)
+                continue
+            }
+
+            guard destinationPath != itemPath, !destinationPath.hasPrefix(itemPath + "/") else {
+                skipped.append(url)
+                continue
+            }
+
+            let hasListedAncestor = itemPaths.contains { otherPath in
+                otherPath != itemPath && itemPath.hasPrefix(otherPath + "/")
+            }
+            guard !hasListedAncestor else { continue }
+
+            toMove.append(url)
+        }
+
+        return (toMove, skipped)
     }
 
     private func centerPanel() {
@@ -453,4 +540,19 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         NotificationCenter.default.removeObserver(self)
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
+}
+
+// MARK: - Batch move
+
+/// Outcome of a batch move: what moved, what was skipped by the plan, and what failed.
+struct BatchMoveResult {
+    var moved: [URL] = []
+    var skipped: [URL] = []                 // already in the destination, or would move a folder into itself
+    var failed: [(url: URL, error: Error)] = []
+}
+
+/// Payload handed back from the detached move task; only URLs and errors cross the boundary.
+private struct BatchMoveOutcome: @unchecked Sendable {
+    var moved: [URL] = []
+    var failed: [(url: URL, error: Error)] = []
 }

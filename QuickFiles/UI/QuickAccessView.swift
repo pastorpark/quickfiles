@@ -174,14 +174,12 @@ struct QuickAccessView: View {
     private var footer: some View {
         HStack(spacing: 10) {
             Button {
-                if let item = model.primaryItem {
-                    move(item)
-                }
+                moveSelection()
             } label: {
-                Label("이동", systemImage: "folder")
+                Label(model.selection.count > 1 ? "이동 (\(model.selection.count)개)" : "이동", systemImage: "folder")
             }
-            .disabled(model.selection.count != 1)
-            .help(model.selection.count > 1 ? "여러 파일 이동은 다음 단계에서 지원됩니다" : "다른 폴더로 이동")
+            .disabled(model.selectedItems.isEmpty)
+            .help("다른 폴더로 이동")
 
             Button {
                 _ = activateSelection(reveal: false)
@@ -303,6 +301,10 @@ struct QuickAccessView: View {
         })
         menu.addItem(ClosureMenuItem(title: "복사\(suffix)") { [controller] in
             controller.copy(items)
+        })
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem(title: "이동…\(suffix)") {
+            moveSelection()
         })
         return menu
     }
@@ -431,7 +433,11 @@ struct QuickAccessView: View {
         }
     }
 
-    private func move(_ item: FileItem) {
+    private func moveSelection() {
+        // Capture the selection before the chooser: the panel is not key while NSOpenPanel runs.
+        let items = model.selectedItems
+        guard !items.isEmpty else { return }
+
         let panel = NSOpenPanel()
         panel.message = "파일을 이동할 폴더를 선택하세요."
         panel.prompt = "이동"
@@ -439,9 +445,9 @@ struct QuickAccessView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         let response = controller.runModal { panel.runModal() }
-        if response == .OK, let folder = panel.url {
-            controller.move(item, to: folder)
-        }
+        guard response == .OK, let folder = panel.url else { return }
+
+        Task { await controller.moveAndReport(items, to: folder) }
     }
 
     private func addBookmark() {

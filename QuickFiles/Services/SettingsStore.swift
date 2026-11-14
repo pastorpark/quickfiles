@@ -3,6 +3,9 @@ import Combine
 
 @MainActor
 final class SettingsStore: ObservableObject {
+    static let panelWidthRange: ClosedRange<Double> = 640...1600
+    static let defaultPanelWidth: Double = 760
+
     @Published var scanFolders: [FolderRule] {
         didSet { save() }
     }
@@ -24,6 +27,10 @@ final class SettingsStore: ObservableObject {
     }
 
     @Published var hotKey: HotKeyDefinition {
+        didSet { save() }
+    }
+
+    @Published var panelWidth: Double {
         didSet { save() }
     }
 
@@ -49,6 +56,7 @@ final class SettingsStore: ObservableObject {
             self.maxRecentFiles = decoded.maxRecentFiles
             let decodedHotKey = decoded.hotKey
             self.hotKey = decodedHotKey == .legacyOptionSpace ? .defaultValue : decodedHotKey
+            self.panelWidth = Self.clampPanelWidth(decoded.panelWidth ?? Self.defaultPanelWidth)
 
             let refreshedBookmarkData = scanFolders.map(\.bookmarkData) != storedScanFolders.map(\.bookmarkData)
                 || excludedFolders.map(\.bookmarkData) != storedExcludedFolders.map(\.bookmarkData)
@@ -64,6 +72,7 @@ final class SettingsStore: ObservableObject {
             self.bookmarks = []
             self.maxRecentFiles = PersistedSettings.defaultMaxRecentFiles
             self.hotKey = .defaultValue
+            self.panelWidth = Self.defaultPanelWidth
             save()
         }
     }
@@ -115,7 +124,8 @@ final class SettingsStore: ObservableObject {
             excludedExtensions: excludedExtensions,
             bookmarks: bookmarks,
             maxRecentFiles: maxRecentFiles,
-            hotKey: hotKey
+            hotKey: hotKey,
+            panelWidth: Self.clampPanelWidth(panelWidth)
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
         try? data.write(to: fileURL, options: [.atomic])
@@ -203,6 +213,12 @@ final class SettingsStore: ObservableObject {
             .trimmingCharacters(in: CharacterSet(charactersIn: "."))
             .lowercased()
     }
+
+    /// Limits a stored width to the supported range; NaN / infinite values fall back to the default.
+    static func clampPanelWidth(_ value: Double) -> Double {
+        guard value.isFinite else { return defaultPanelWidth }
+        return min(max(value, panelWidthRange.lowerBound), panelWidthRange.upperBound)
+    }
 }
 
 private struct PersistedSettings: Codable {
@@ -215,11 +231,13 @@ private struct PersistedSettings: Codable {
     var bookmarks: [StoredBookmark]
     var maxRecentFiles: Int
     var hotKey: HotKeyDefinition
+    /// nil only when decoding a file written by 1.1 or earlier (no panelWidth key).
+    var panelWidth: Double?
     /// True when a field was missing and filled with a default, so the file should be rewritten.
     var wasMigrated = false
 
     private enum CodingKeys: String, CodingKey {
-        case scanFolders, excludedFolders, excludedExtensions, bookmarks, maxRecentFiles, hotKey
+        case scanFolders, excludedFolders, excludedExtensions, bookmarks, maxRecentFiles, hotKey, panelWidth
     }
 
     init(
@@ -228,7 +246,8 @@ private struct PersistedSettings: Codable {
         excludedExtensions: [String],
         bookmarks: [StoredBookmark],
         maxRecentFiles: Int,
-        hotKey: HotKeyDefinition
+        hotKey: HotKeyDefinition,
+        panelWidth: Double?
     ) {
         self.scanFolders = scanFolders
         self.excludedFolders = excludedFolders
@@ -236,6 +255,7 @@ private struct PersistedSettings: Codable {
         self.bookmarks = bookmarks
         self.maxRecentFiles = maxRecentFiles
         self.hotKey = hotKey
+        self.panelWidth = panelWidth
     }
 
     init(from decoder: Decoder) throws {
@@ -246,6 +266,7 @@ private struct PersistedSettings: Codable {
         let bookmarks = try container.decodeIfPresent([StoredBookmark].self, forKey: .bookmarks)
         let maxRecentFiles = try container.decodeIfPresent(Int.self, forKey: .maxRecentFiles)
         let hotKey = try container.decodeIfPresent(HotKeyDefinition.self, forKey: .hotKey)
+        let panelWidth = try container.decodeIfPresent(Double.self, forKey: .panelWidth)
 
         self.scanFolders = scanFolders
         self.excludedFolders = excludedFolders
@@ -253,6 +274,7 @@ private struct PersistedSettings: Codable {
         self.bookmarks = bookmarks ?? []
         self.maxRecentFiles = maxRecentFiles ?? Self.defaultMaxRecentFiles
         self.hotKey = hotKey ?? .defaultValue
+        self.panelWidth = panelWidth
         self.wasMigrated = [
             scanFolders == nil, excludedFolders == nil, excludedExtensions == nil,
             bookmarks == nil, maxRecentFiles == nil, hotKey == nil

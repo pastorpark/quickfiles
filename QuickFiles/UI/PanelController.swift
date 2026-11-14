@@ -58,9 +58,10 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             viewModel = model
             let root = QuickAccessView(store: store, controller: self, model: model)
             let hosting = NSHostingController(rootView: root)
+            hosting.sizingOptions = [.minSize]
             let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 760, height: 380),
-                styleMask: [.titled, .fullSizeContentView],
+                contentRect: NSRect(x: 0, y: 0, width: store.panelWidth, height: 380),
+                styleMask: [.titled, .fullSizeContentView, .resizable],
                 backing: .buffered,
                 defer: false
             )
@@ -71,6 +72,8 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             panel.isReleasedWhenClosed = false
             panel.level = .floating
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            panel.contentMinSize = NSSize(width: 640, height: 380)
+            panel.contentMaxSize = NSSize(width: 1600, height: 380)
             panel.delegate = self
             panel.contentViewController = hosting
             self.panel = panel
@@ -82,7 +85,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         }
 
         staysVisibleUntilClosed = false
-        centerPanel()
+        positionPanel()
         NSApp.activate(ignoringOtherApps: true)
         panel?.alphaValue = 1.0
         panel?.makeKeyAndOrderFront(nil)
@@ -110,7 +113,15 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     func windowDidMove(_ notification: Notification) {
         guard panel?.isVisible == true, !isPositioningPanel else { return }
+        // Resizing from the left edge moves the origin; that must not pin the panel open.
+        guard panel?.inLiveResize != true else { return }
         keepVisibleUntilClosed()
+    }
+
+    /// Persists the user's chosen width once, at the end of a live resize (not on every tick).
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let panel else { return }
+        store.panelWidth = min(max(Double(panel.contentLayoutRect.width), 640), 1600)
     }
 
     @objc private func appDidResignActive() {
@@ -519,13 +530,22 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         return (toMove, skipped)
     }
 
-    private func centerPanel() {
-        guard let panel, let screen = NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
+    /// Places the panel on the screen under the mouse, centred horizontally near the top of the visible frame.
+    private func positionPanel() {
+        guard let panel else { return }
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens.first
+        guard let screen else { return }
+        let visible = screen.visibleFrame
+
+        if panel.frame.width > visible.width - 40 {
+            panel.setContentSize(NSSize(width: max(640, visible.width - 40), height: 380))
+        }
+
         let size = panel.frame.size
         let origin = NSPoint(
-            x: screenFrame.midX - size.width / 2,
-            y: screenFrame.maxY - size.height - 90
+            x: min(max(visible.midX - size.width / 2, visible.minX), visible.maxX - size.width),
+            y: max(visible.minY, visible.maxY - size.height - 90)
         )
         isPositioningPanel = true
         panel.setFrameOrigin(origin)

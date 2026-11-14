@@ -64,6 +64,12 @@ struct SettingsView: View {
             .padding(12)
             .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
+            Stepper(value: $store.maxRecentFiles, in: 20...200, step: 10) {
+                Text("검색어가 없을 때 표시할 최근 파일: \(store.maxRecentFiles)개")
+            }
+            .padding(12)
+            .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
             if launchAtLogin.requiresApproval {
                 Label("시스템 설정에서 QuickFiles 실행을 허용해야 합니다.", systemImage: "exclamationmark.triangle")
                     .font(.callout)

@@ -19,7 +19,10 @@ struct QuickAccessView: View {
             Divider().opacity(0.55)
             footer
         }
-        .frame(width: 760, height: 380)
+        .frame(
+            minWidth: 640, idealWidth: 760, maxWidth: .infinity,
+            minHeight: 380, idealHeight: 380, maxHeight: .infinity
+        )
         .background(.regularMaterial)
         .tint(QuickFilesTheme.accent)
         .background(

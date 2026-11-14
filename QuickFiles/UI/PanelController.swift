@@ -17,6 +17,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     private var staysVisibleUntilClosed = false
     private var isDraggingFiles = false
     private var isPositioningPanel = false
+    private var isPresentingModal = false
 
     private(set) var viewModel: PanelViewModel?
 
@@ -103,7 +104,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ notification: Notification) {
-        guard !staysVisibleUntilClosed, !isDraggingFiles else { return }
+        guard !staysVisibleUntilClosed, !isDraggingFiles, !isPresentingModal else { return }
         hide()
     }
 
@@ -113,7 +114,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     }
 
     @objc private func appDidResignActive() {
-        guard !staysVisibleUntilClosed, !isDraggingFiles else { return }
+        guard !staysVisibleUntilClosed, !isDraggingFiles, !isPresentingModal else { return }
         hide()
     }
 
@@ -139,24 +140,76 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         performRefresh(changes: nil, showLoading: showLoading)
     }
 
+    /// Run an AppKit modal (NSOpenPanel / NSAlert runModal) without the quick panel hiding itself.
+    func runModal<T>(_ body: () -> T) -> T {
+        isPresentingModal = true
+        defer {
+            isPresentingModal = false
+            panel?.makeKeyAndOrderFront(nil)
+        }
+        return body()
+    }
+
     func open(_ item: FileItem) {
-        NSWorkspace.shared.open(item.url)
+        open([item])
+    }
+
+    /// Opens every item once (duplicates by standardized path collapse); hides the panel once.
+    func open(_ items: [FileItem]) {
+        let urls = Self.uniqueURLs(for: items)
+        guard !urls.isEmpty else { return }
+
+        if urls.count > Self.batchOpenConfirmationThreshold {
+            let confirmed = runModal { () -> Bool in
+                let alert = NSAlert()
+                alert.messageText = "\(urls.count)개 파일을 여시겠습니까?"
+                alert.addButton(withTitle: "열기")
+                alert.addButton(withTitle: "취소")
+                return alert.runModal() == .alertFirstButtonReturn
+            }
+            guard confirmed else { return }
+        }
+
+        for url in urls {
+            NSWorkspace.shared.open(url)
+        }
         hide()
     }
 
     func reveal(_ item: FileItem) {
-        NSWorkspace.shared.activateFileViewerSelecting([item.url])
+        reveal([item])
+    }
+
+    func reveal(_ items: [FileItem]) {
+        let urls = Self.uniqueURLs(for: items)
+        guard !urls.isEmpty else { return }
+
+        NSWorkspace.shared.activateFileViewerSelecting(urls)
         hide()
     }
 
     func copy(_ item: FileItem) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.writeObjects([item.url as NSURL])
+        copy([item])
     }
 
-    var isQuickPanelActive: Bool {
-        panel?.isVisible == true && panel?.isKeyWindow == true
+    func copy(_ items: [FileItem]) {
+        let urls = Self.uniqueURLs(for: items)
+        guard !urls.isEmpty else { return }
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects(urls.map { $0 as NSURL })
+    }
+
+    /// Event ownership for the local key monitor: only the key quick panel takes keys.
+    func ownsKeyEvent(_ event: NSEvent) -> Bool {
+        guard let panel, panel.isVisible, panel.isKeyWindow, !isPresentingModal else { return false }
+        return event.window === panel && panel.attachedSheet == nil
+    }
+
+    /// Make the window itself first responder (ends text editing, results get keyboard focus).
+    func focusResults() {
+        panel?.makeFirstResponder(nil)
     }
 
     func move(_ item: FileItem, to folder: URL) {
@@ -359,6 +412,24 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         let pathExtension = source.pathExtension
         let name = pathExtension.isEmpty ? "\(baseName) \(index)" : "\(baseName) \(index).\(pathExtension)"
         return folder.appendingPathComponent(name)
+    }
+
+    // MARK: - Batch helpers
+
+    /// Above this many files, opening asks for confirmation first.
+    private static let batchOpenConfirmationThreshold = 10
+
+    /// Drops items pointing at the same standardized path, keeping the first occurrence's order.
+    private static func uniqueURLs(for items: [FileItem]) -> [URL] {
+        var seenPaths = Set<String>()
+        var urls: [URL] = []
+        urls.reserveCapacity(items.count)
+        for item in items {
+            let url = item.url.standardizedFileURL
+            guard seenPaths.insert(url.path).inserted else { continue }
+            urls.append(item.url)
+        }
+        return urls
     }
 
     private func centerPanel() {

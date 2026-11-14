@@ -7,6 +7,8 @@ struct QuickAccessView: View {
     @ObservedObject var controller: PanelController
     @ObservedObject var model: PanelViewModel
 
+    @FocusState private var isSearchFocused: Bool
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -34,6 +36,7 @@ struct QuickAccessView: View {
             TextField("파일 이름이나 폴더 경로 검색", text: $model.query)
                 .textFieldStyle(.plain)
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .focused($isSearchFocused)
 
             if controller.isLoading {
                 ProgressView()
@@ -177,7 +180,22 @@ struct QuickAccessView: View {
             } label: {
                 Label("이동", systemImage: "folder")
             }
-            .disabled(model.primaryItem == nil)
+            .disabled(model.selection.count != 1)
+            .help(model.selection.count > 1 ? "여러 파일 이동은 다음 단계에서 지원됩니다" : "다른 폴더로 이동")
+
+            Button {
+                _ = activateSelection(reveal: false)
+            } label: {
+                Label("열기", systemImage: "arrow.up.forward.app")
+            }
+            .disabled(model.selectedItems.isEmpty)
+
+            Button {
+                _ = activateSelection(reveal: true)
+            } label: {
+                Label("Finder", systemImage: "folder.badge.magnifyingglass")
+            }
+            .disabled(model.selectedItems.isEmpty)
 
             if model.selection.count > 1 {
                 Text("\(model.selection.count)개 선택됨")
@@ -187,9 +205,10 @@ struct QuickAccessView: View {
 
             Spacer()
 
-            Text("↵ 열기   ⌘↵ Finder")
+            Text("↵ 열기   ⌘↵ Finder   ⇧ 클릭 범위 선택   ⌘ 클릭 추가 선택")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(.tertiary)
+                .lineLimit(1)
 
             Button {
                 controller.refresh()
@@ -270,21 +289,27 @@ struct QuickAccessView: View {
     private func tileMenu(for id: FileItem.ID) -> NSMenu? {
         guard let item = model.snapshot.itemsByID[id] else { return nil }
 
+        // The right-clicked item is already part of the selection (onContextSelection ran first).
+        let selection = model.selectedItems
+        let items = selection.isEmpty ? [item] : selection
+        let suffix = items.count > 1 ? " (\(items.count)개)" : ""
+
         let menu = NSMenu()
-        menu.addItem(ClosureMenuItem(title: "Finder에서 위치 보기") { [controller] in
-            controller.reveal(item)
+        menu.addItem(ClosureMenuItem(title: "열기\(suffix)") { [controller] in
+            controller.open(items)
         })
-        menu.addItem(ClosureMenuItem(title: "열기") { [controller] in
-            controller.open(item)
+        menu.addItem(ClosureMenuItem(title: "Finder에서 위치 보기\(suffix)") { [controller] in
+            controller.reveal(items)
         })
-        menu.addItem(ClosureMenuItem(title: "복사") { [controller] in
-            controller.copy(item)
+        menu.addItem(ClosureMenuItem(title: "복사\(suffix)") { [controller] in
+            controller.copy(items)
         })
         return menu
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> Bool {
-        guard event.type == .keyDown, controller.isQuickPanelActive else { return false }
+        // Only key-down events aimed at the quick panel itself belong to us.
+        guard event.type == .keyDown, controller.ownsKeyEvent(event) else { return false }
 
         // Let the input method finish composing (e.g. Hangul) before treating
         // Return/arrow keys as panel navigation.
@@ -292,28 +317,24 @@ struct QuickAccessView: View {
             return false
         }
 
+        // The search field's field editor is a text view: while it is first responder
+        // the user is editing the query and normal text keys stay with the field.
+        let editing = NSApp.keyWindow?.firstResponder is NSTextView
+
         let order = model.snapshot.orderedIDs
-        let extending = event.modifierFlags.contains(.shift)
+        let shift = event.modifierFlags.contains(.shift)
+        let command = event.modifierFlags.contains(.command)
+
+        // Reserved for other uses: never swallow them.
+        if event.modifierFlags.contains(.control) || event.modifierFlags.contains(.option) {
+            return false
+        }
+
+        // Keys shared by both modes
 
         switch event.keyCode {
-        case 123:
-            model.selection.moveFocus(by: -1, in: order, extending: extending)
-            return true
-        case 124:
-            model.selection.moveFocus(by: 1, in: order, extending: extending)
-            return true
-        case 125:
-            model.selection.moveFocus(by: 5, in: order, extending: extending)
-            return true
-        case 126:
-            model.selection.moveFocus(by: -5, in: order, extending: extending)
-            return true
         case 36, 76:
-            if let item = model.primaryItem {
-                openOrReveal(item, modifierFlags: event.modifierFlags)
-                return true
-            }
-            return false
+            return activateSelection(reveal: command)
         case 53:
             if model.selection.count > 1 {
                 model.selection.collapseToFocus(in: order)
@@ -322,8 +343,84 @@ struct QuickAccessView: View {
             }
             return true
         default:
+            break
+        }
+
+        if editing {
+            switch event.keyCode {
+            case 125:
+                model.selection.moveFocus(by: 1, in: order, extending: shift)
+                return true
+            case 126:
+                model.selection.moveFocus(by: -1, in: order, extending: shift)
+                return true
+            case 48 where !shift:
+                // Tab leaves the search field: results take the keyboard.
+                controller.focusResults()
+                return true
+            default:
+                // Everything else (caret keys, Cmd+A/C/V/X, Space, Delete, letters…) is text editing.
+                return false
+            }
+        }
+
+        // Results mode
+
+        switch event.keyCode {
+        case 123:
+            model.selection.moveFocus(by: -1, in: order, extending: shift)
+            return true
+        case 124:
+            model.selection.moveFocus(by: 1, in: order, extending: shift)
+            return true
+        case 125:
+            model.selection.moveFocus(by: 5, in: order, extending: shift)
+            return true
+        case 126:
+            model.selection.moveFocus(by: -5, in: order, extending: shift)
+            return true
+        case 48:
+            focusSearchField()
+            return true
+        case 0 where command && !shift:
+            model.selection.selectAll(in: order)
+            return true
+        case 8 where command:
+            controller.copy(model.selectedItems)
+            return true
+        default:
             return false
         }
+    }
+
+    /// Tab from the results: put the caret back into the search field.
+    private func focusSearchField() {
+        isSearchFocused = true
+        // AppKit can hold first responder on a tile view while the SwiftUI flag still reads
+        // `true`; clear it and re-assert it on a later run loop turn so the field takes focus.
+        DispatchQueue.main.async {
+            guard !(NSApp.keyWindow?.firstResponder is NSTextView) else { return }
+            isSearchFocused = false
+            DispatchQueue.main.async {
+                isSearchFocused = true
+            }
+        }
+    }
+
+    /// Return / Enter, footer buttons and menu shortcuts: act on the whole selection.
+    private func activateSelection(reveal: Bool) -> Bool {
+        var items = model.selectedItems
+        if items.isEmpty, let primary = model.primaryItem {
+            items = [primary]
+        }
+        guard !items.isEmpty else { return false }
+
+        if reveal {
+            controller.reveal(items)
+        } else {
+            controller.open(items)
+        }
+        return true
     }
 
     private func openOrReveal(_ item: FileItem, modifierFlags: NSEvent.ModifierFlags) {
@@ -341,7 +438,8 @@ struct QuickAccessView: View {
         panel.allowsMultipleSelection = false
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
-        if panel.runModal() == .OK, let folder = panel.url {
+        let response = controller.runModal { panel.runModal() }
+        if response == .OK, let folder = panel.url {
             controller.move(item, to: folder)
         }
     }
@@ -351,7 +449,8 @@ struct QuickAccessView: View {
         panel.allowsMultipleSelection = true
         panel.canChooseFiles = true
         panel.canChooseDirectories = true
-        if panel.runModal() == .OK {
+        let response = controller.runModal { panel.runModal() }
+        if response == .OK {
             panel.urls.forEach { store.addBookmark($0) }
         }
     }

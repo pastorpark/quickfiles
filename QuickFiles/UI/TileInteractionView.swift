@@ -57,6 +57,8 @@ struct TileInteractionView: NSViewRepresentable {
 
         override var mouseDownCanMoveWindow: Bool { false }
 
+        override var acceptsFirstResponder: Bool { true }
+
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
         // The SwiftUI tile stays the accessible element.
@@ -68,6 +70,9 @@ struct TileInteractionView: NSViewRepresentable {
         // MARK: - Mouse
 
         override func mouseDown(with event: NSEvent) {
+            // Clicking a tile ends search editing: results get keyboard focus.
+            window?.makeFirstResponder(self)
+
             if event.modifierFlags.contains(.control) {
                 onContextSelection(itemID)
                 if let menu = makeMenu(itemID) {

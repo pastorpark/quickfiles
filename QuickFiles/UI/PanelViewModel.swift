@@ -16,13 +16,11 @@ final class PanelViewModel: ObservableObject {
     @Published var selection = SelectionModel<FileItem.ID>()
 
     private let store: SettingsStore
-    private let controller: PanelController
     private var cancellables = Set<AnyCancellable>()
 
     init(store: SettingsStore, controller: PanelController) {
         self.store = store
-        self.controller = controller
-        observeInputs()
+        observeInputs(controller: controller)
     }
 
     var selectedItems: [FileItem] {
@@ -46,7 +44,7 @@ final class PanelViewModel: ObservableObject {
 
     // MARK: - Observation
 
-    private func observeInputs() {
+    private func observeInputs(controller: PanelController) {
         // Empty query applies immediately; non-empty waits 150 ms and a newer query cancels the older one.
         let debouncedQuery = $query
             .removeDuplicates()

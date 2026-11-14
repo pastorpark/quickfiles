@@ -17,13 +17,17 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     private var staysVisibleUntilClosed = false
     private var isDraggingFiles = false
     private var isPositioningPanel = false
-    private var isPresentingModal = false
+    private var modalDepth = 0
+    private var presentationGeneration = 0
+
+    private var isPresentingModal: Bool { modalDepth > 0 }
 
     private(set) var viewModel: PanelViewModel?
 
     @Published var items: [FileItem] = []
     @Published var searchableItems: [FileItem] = []
     @Published var isLoading = false
+    @Published private(set) var isMoving = false
 
     init(store: SettingsStore) {
         self.store = store
@@ -53,6 +57,8 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     }
 
     func show() {
+        presentationGeneration += 1
+
         if panel == nil {
             let model = PanelViewModel(store: store, controller: self)
             viewModel = model
@@ -104,6 +110,18 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     func setDraggingFiles(_ dragging: Bool) {
         isDraggingFiles = dragging
+        guard !dragging else { return }
+
+        // The drag interaction ends while AppKit still considers the drag active; re-apply the
+        // hide policy on the next run-loop turn, by which time the key/main window state settled.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isDraggingFiles else { return }
+            guard self.panel?.isVisible == true,
+                  !self.staysVisibleUntilClosed,
+                  !self.isPresentingModal else { return }
+            guard !NSApp.isActive || self.panel?.isKeyWindow != true else { return }
+            self.hide()
+        }
     }
 
     func windowDidResignKey(_ notification: Notification) {
@@ -153,10 +171,14 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     /// Run an AppKit modal (NSOpenPanel / NSAlert runModal) without the quick panel hiding itself.
     func runModal<T>(_ body: () -> T) -> T {
-        isPresentingModal = true
+        let wasVisible = panel?.isVisible == true
+        modalDepth += 1
         defer {
-            isPresentingModal = false
-            panel?.makeKeyAndOrderFront(nil)
+            modalDepth -= 1
+            // Nested modals must not steal focus back while an outer one is still running.
+            if modalDepth == 0, wasVisible {
+                panel?.makeKeyAndOrderFront(nil)
+            }
         }
         return body()
     }
@@ -225,11 +247,27 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     /// Moves the items, then hides the panel when nothing failed or reports the failure inside the panel.
     func moveAndReport(_ items: [FileItem], to folder: URL) async {
+        guard !isMoving else {
+            NSSound.beep()
+            return
+        }
+        isMoving = true
+        defer { isMoving = false }
+
+        let generation = presentationGeneration
         let result = await move(items, to: folder)
 
         guard !result.failed.isEmpty else {
-            hide()
+            // Only close the panel instance the user actually started this move from.
+            if generation == presentationGeneration {
+                hide()
+            }
             return
+        }
+
+        // An open-panel / alert modal would swallow this one; wait for the main run loop to drain it.
+        while modalDepth > 0 {
+            try? await Task.sleep(nanoseconds: 200_000_000)
         }
 
         _ = runModal { () -> NSApplication.ModalResponse in
@@ -241,14 +279,15 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         }
     }
 
-    /// Runs the plan on a background task so large / cross-volume moves don't block the UI.
+    /// Plans and moves on a background task so large / cross-volume moves don't block the UI.
     func move(_ items: [FileItem], to folder: URL) async -> BatchMoveResult {
-        let plan = Self.planMove(items.map(\.url), to: folder)
-        var result = BatchMoveResult(skipped: plan.skipped)
-        let toMove = plan.toMove
+        let urls = items.map(\.url)
         let outcome = await Task.detached(priority: .userInitiated) { () -> BatchMoveOutcome in
             var outcome = BatchMoveOutcome()
-            for url in toMove {
+            let plan = MovePlanner.plan(urls, to: folder)
+            outcome.skipped = plan.skipped
+            outcome.carried = plan.carried
+            for url in plan.toMove {
                 do {
                     outcome.moved.append(try PanelController.moveFile(url, into: folder))
                 } catch {
@@ -257,10 +296,14 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             }
             return outcome
         }.value
-        result.moved = outcome.moved
-        result.failed = outcome.failed
+
         refresh(showLoading: false)
-        return result
+        return BatchMoveResult(
+            moved: outcome.moved,
+            skipped: outcome.skipped,
+            carried: outcome.carried,
+            failed: outcome.failed
+        )
     }
 
     private func observeSettings() {
@@ -484,52 +527,6 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         return urls
     }
 
-    /// Pure planning (no file system writes): splits the selection into items to move and items to skip.
-    ///
-    /// - Items already in the destination folder, and folders that contain the destination, are skipped.
-    /// - Items whose ancestor folder is part of the list are dropped: they travel with that folder.
-    nonisolated static func planMove(_ urls: [URL], to folder: URL) -> (toMove: [URL], skipped: [URL]) {
-        let destinationPath = folder.resolvingSymlinksInPath().standardizedFileURL.path
-
-        var seenPaths = Set<String>()
-        var unique: [URL] = []
-        unique.reserveCapacity(urls.count)
-        for url in urls {
-            guard seenPaths.insert(url.standardizedFileURL.path).inserted else { continue }
-            unique.append(url)
-        }
-
-        let itemPaths = unique.map { $0.resolvingSymlinksInPath().standardizedFileURL.path }
-
-        var toMove: [URL] = []
-        var skipped: [URL] = []
-        toMove.reserveCapacity(unique.count)
-
-        for (offset, url) in unique.enumerated() {
-            let itemPath = itemPaths[offset]
-
-            let parentPath = url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.path
-            guard parentPath != destinationPath else {
-                skipped.append(url)
-                continue
-            }
-
-            guard destinationPath != itemPath, !destinationPath.hasPrefix(itemPath + "/") else {
-                skipped.append(url)
-                continue
-            }
-
-            let hasListedAncestor = itemPaths.contains { otherPath in
-                otherPath != itemPath && itemPath.hasPrefix(otherPath + "/")
-            }
-            guard !hasListedAncestor else { continue }
-
-            toMove.append(url)
-        }
-
-        return (toMove, skipped)
-    }
-
     /// Places the panel on the screen under the mouse, centred horizontally near the top of the visible frame.
     private func positionPanel() {
         guard let panel else { return }
@@ -537,6 +534,9 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens.first
         guard let screen else { return }
         let visible = screen.visibleFrame
+
+        // A shrink can move the frame too; flag it before the resize so windowDidMove stays quiet.
+        isPositioningPanel = true
 
         if panel.frame.width > visible.width - 40 {
             panel.setContentSize(NSSize(width: max(640, visible.width - 40), height: 380))
@@ -547,7 +547,6 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             x: min(max(visible.midX - size.width / 2, visible.minX), visible.maxX - size.width),
             y: max(visible.minY, visible.maxY - size.height - 90)
         )
-        isPositioningPanel = true
         panel.setFrameOrigin(origin)
         DispatchQueue.main.async { [weak self] in
             self?.isPositioningPanel = false
@@ -564,15 +563,18 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
 // MARK: - Batch move
 
-/// Outcome of a batch move: what moved, what was skipped by the plan, and what failed.
+/// Outcome of a batch move: what moved, what the plan skipped or carried, and what failed.
 struct BatchMoveResult {
     var moved: [URL] = []
     var skipped: [URL] = []                 // already in the destination, or would move a folder into itself
+    var carried: [URL] = []                 // inside a selected folder that moved, so not moved separately
     var failed: [(url: URL, error: Error)] = []
 }
 
 /// Payload handed back from the detached move task; only URLs and errors cross the boundary.
 private struct BatchMoveOutcome: @unchecked Sendable {
     var moved: [URL] = []
+    var skipped: [URL] = []
+    var carried: [URL] = []
     var failed: [(url: URL, error: Error)] = []
 }

@@ -150,43 +150,52 @@ struct QuickAccessView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 8) {
-                    ForEach(model.snapshot.bookmarkItems) { item in
-                        BookmarkTile(
-                            item: item,
-                            isSelected: model.selection.isSelected(item.id),
-                            isFocused: model.selection.focusedID == item.id
-                        )
-                            .id(item.id)
-                            .overlay(tileInteraction(for: item))
-                            .accessibilityElement(children: .combine)
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityAction {
-                                openOrReveal(item, modifierFlags: [])
-                            }
-                    }
-
-                    Button {
-                        addBookmark()
-                    } label: {
-                        VStack(spacing: 7) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(QuickFilesTheme.accent)
-                                .frame(width: 42, height: 42)
-                                .background(Color.accentColor.opacity(0.1))
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            Text("추가")
-                                .font(.caption)
+            ScrollViewReader { bookmarkProxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 8) {
+                        ForEach(model.snapshot.bookmarkItems) { item in
+                            BookmarkTile(
+                                item: item,
+                                isSelected: model.selection.isSelected(item.id),
+                                isFocused: model.selection.focusedID == item.id
+                            )
+                                .id(item.id)
+                                .overlay(tileInteraction(for: item))
+                                .accessibilityElement(children: .combine)
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityAction {
+                                    openOrReveal(item, modifierFlags: [])
+                                }
                         }
-                        .frame(width: 72, height: 82)
+
+                        Button {
+                            addBookmark()
+                        } label: {
+                            VStack(spacing: 7) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(QuickFilesTheme.accent)
+                                    .frame(width: 42, height: 42)
+                                    .background(Color.accentColor.opacity(0.1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                Text("추가")
+                                    .font(.caption)
+                            }
+                            .frame(width: 72, height: 82)
+                        }
+                        .buttonStyle(.plain)
+                        .help("북마크 추가")
                     }
-                    .buttonStyle(.plain)
-                    .help("북마크 추가")
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .onChange(of: model.selection.focusedID) { focusedID in
+                    guard let focusedID,
+                          model.snapshot.bookmarkItems.contains(where: { $0.id == focusedID }) else { return }
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        bookmarkProxy.scrollTo(focusedID, anchor: .center)
+                    }
+                }
             }
         }
         .frame(height: 112)
@@ -200,7 +209,7 @@ struct QuickAccessView: View {
             } label: {
                 Label(model.selection.count > 1 ? "이동 (\(model.selection.count)개)" : "이동", systemImage: "folder")
             }
-            .disabled(model.selectedItems.isEmpty)
+            .disabled(model.selectedItems.isEmpty || controller.isMoving)
             .help("다른 폴더로 이동")
 
             Button {
@@ -466,6 +475,11 @@ struct QuickAccessView: View {
     }
 
     private func moveSelection() {
+        guard !controller.isMoving else {
+            NSSound.beep()
+            return
+        }
+
         // Capture the selection before the chooser: the panel is not key while NSOpenPanel runs.
         let items = model.selectedItems
         guard !items.isEmpty else { return }

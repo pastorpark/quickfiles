@@ -9,9 +9,10 @@ QuickFiles는 macOS 메뉴 막대에서 실행되는 최근 파일 검색 유틸
 - 데스크톱, 다운로드, 문서 폴더의 최근 파일 자동 스캔
 - 파일명과 상위 폴더 경로 기반 검색
 - Quick Look 썸네일을 사용한 파일 미리보기
-- 키보드 방향키로 항목 이동, `Enter`로 열기
-- `Command + Enter` 또는 컨텍스트 메뉴로 Finder 위치 표시
-- 파일 드래그, 복사, 다른 폴더로 이동
+- `Command`/`Shift` 클릭과 `Shift` + 방향키로 여러 파일 선택
+- 선택한 파일 한꺼번에 열기, Finder에서 보기, 복사, 드래그, 다른 폴더로 이동
+- 키보드 방향키로 항목 이동, `Enter`로 열기, `Command + Enter`로 Finder 위치 표시
+- 너비를 조절할 수 있는 패널(크기 기억), 마우스가 있는 화면에 표시
 - 자주 쓰는 파일과 폴더 북마크
 - 검색 폴더, 제외 폴더, 제외 확장자 관리
 - 로그인 시 자동 실행 설정
@@ -31,7 +32,7 @@ QuickFiles는 macOS 메뉴 막대에서 실행되는 최근 파일 검색 유틸
 3. Run을 실행합니다.
 4. 메뉴 막대의 QuickFiles 아이콘을 클릭하거나 `Command + Shift + /`를 눌러 패널을 엽니다.
 
-터미널에서 빌드하려면 다음 명령을 사용할 수 있습니다.
+터미널에서 빌드하려면 다음 명령을 사용할 수 있습니다. 다중 선택 규칙 테스트는 저장소 루트에서 `swift test`로 실행합니다.
 
 ```sh
 xcodebuild -project QuickFiles.xcodeproj -scheme QuickFiles -configuration Debug build
@@ -39,16 +40,35 @@ xcodebuild -project QuickFiles.xcodeproj -scheme QuickFiles -configuration Debug
 
 ## 사용 방법
 
-QuickFiles가 실행되면 Dock에는 표시되지 않고 메뉴 막대에만 나타납니다. 패널에서는 최근 파일이 가로 목록으로 표시되며, 검색어를 입력하면 파일 이름과 폴더 경로가 함께 검색됩니다.
+QuickFiles가 실행되면 Dock에는 표시되지 않고 메뉴 막대에만 나타납니다. 패널에서는 최근 파일이 가로 목록으로 표시되며, 검색어를 입력하면 파일 이름과 폴더 경로가 함께 검색됩니다. 패널의 왼쪽·오른쪽 가장자리를 끌어 너비를 바꿀 수 있습니다.
 
-- `←`, `→`: 이전/다음 항목 선택
-- `↑`, `↓`: 여러 칸씩 이동
-- `Enter`: 선택한 파일 열기
-- `Command + Enter`: Finder에서 선택한 파일 위치 표시
-- `Esc`: 패널 닫기
-- 더블 클릭: 파일 열기
-- 컨텍스트 메뉴: Finder 위치 표시, 열기, 복사
-- `이동`: 선택한 파일을 다른 폴더로 이동
+**선택**
+
+- 클릭: 하나만 선택
+- `Command` + 클릭: 선택에 추가하거나 빼기
+- `Shift` + 클릭: 범위 선택 (`Command + Shift` + 클릭은 범위를 추가)
+- 더블 클릭: 클릭한 파일 열기
+- 선택한 파일 중 하나를 끌면 선택한 파일 전체가 함께 드래그됩니다.
+
+**키보드: 검색창에 커서가 있을 때**
+
+- `↓`, `↑`: 다음/이전 파일 선택 (`Shift`를 누르면 범위 선택)
+- `←`, `→`, `Command + A` 등: 검색어 편집
+- `Tab`: 파일 목록으로 이동
+
+**키보드: 파일 목록에 커서가 있을 때** (파일을 클릭하거나 `Tab`)
+
+- `←`, `→`: 이전/다음 파일, `↑`, `↓`: 여러 칸씩 이동 (`Shift`를 누르면 범위 선택)
+- `Command + A`: 모두 선택, `Command + C`: 선택한 파일 복사
+- `Tab`: 검색창으로 이동
+
+**공통**
+
+- `Enter`: 선택한 파일 모두 열기 (10개가 넘으면 확인)
+- `Command + Enter`: 선택한 파일을 Finder에서 보기
+- `Esc`: 여러 개가 선택되어 있으면 하나로 줄이고, 아니면 패널 닫기
+- 컨텍스트 메뉴: 열기, Finder에서 위치 보기, 복사, 이동, 북마크에 추가/제거 (선택한 파일 전체에 적용)
+- `이동`: 선택한 파일을 다른 폴더로 이동 (이미 그 폴더에 있는 파일은 건너뜀)
 
 ## 설정
 
@@ -58,6 +78,7 @@ QuickFiles가 실행되면 Dock에는 표시되지 않고 메뉴 막대에만 �
 
 - 로그인 시 QuickFiles 자동 실행을 켜거나 끕니다.
 - macOS에서 추가 승인이 필요한 경우 로그인 항목 설정을 열 수 있습니다.
+- 검색어가 없을 때 표시할 최근 파일 개수를 20~200개 사이에서 정합니다.
 
 ### 단축키
 
@@ -101,6 +122,7 @@ QuickFiles/
   QuickFilesApp.swift                    앱 진입점, 메뉴 막대 구성
   Models/
     AppModels.swift                      파일 항목, 북마크, 폴더 규칙, 단축키 모델
+    SelectionModel.swift                 Finder 방식 다중 선택 규칙 (AppKit 의존 없음)
   Services/
     SettingsStore.swift                  설정 저장과 복원
     RecentFileScanner.swift              최근 파일 스캔과 정렬
@@ -108,12 +130,16 @@ QuickFiles/
     HotKeyController.swift               전역 단축키 등록
     LaunchAtLoginController.swift        로그인 시 자동 실행 관리
   UI/
-    QuickAccessView.swift                검색 패널 UI
-    PanelController.swift                패널 표시, 검색 결과 갱신, 파일 작업
+    QuickAccessView.swift                검색 패널 UI, 키보드 처리
+    PanelViewModel.swift                 검색 결과 캐시와 선택 상태
+    TileInteractionView.swift            파일 타일의 클릭, 메뉴, 여러 파일 드래그 (AppKit)
+    PanelController.swift                패널 표시, 검색 결과 갱신, 여러 파일 작업
     SettingsView.swift                   설정 화면
     SettingsWindowController.swift       설정 창 관리
   Assets.xcassets/                       앱 아이콘, 메뉴 막대 아이콘 에셋
 Design/AppIcon/                          아이콘 원본과 생성 스크립트
+Tests/QuickFilesCoreTests/               SelectionModel 단위 테스트
+Package.swift                            테스트 실행용 Swift 패키지 (`swift test`)
 QuickFiles.xcodeproj/                    Xcode 프로젝트
 ```
 
@@ -122,7 +148,7 @@ QuickFiles.xcodeproj/                    Xcode 프로젝트
 - 파일 스캔은 숨김 파일과 패키지 내부를 건너뜁니다.
 - 한 번의 폴더 스캔은 최대 10,000개 항목까지만 탐색합니다.
 - 최근 파일 정렬 기준은 수정일, 생성일, 디렉터리 추가일, 메타데이터 변경일 중 가장 최신 값입니다.
-- 검색어가 없을 때는 최근 파일을 `settings.json`의 `maxRecentFiles` 값(기본 40개)만큼 표시합니다. 이 값은 설정 화면에서는 바꿀 수 없습니다. 검색어 입력 시에는 전체 스캔 결과를 대상으로 필터링합니다.
+- 검색어가 없을 때는 최근 파일을 설정한 개수(기본 40개)만큼 표시합니다. 검색어 입력 시에는 전체 스캔 결과를 대상으로 필터링합니다.
 - 파일 이동 시 같은 이름의 파일이 이미 있으면 `파일명 2`, `파일명 3` 형식으로 충돌을 피합니다.
 - 현재 위치와 같은 폴더를 이동 대상으로 고르면 아무 작업도 하지 않습니다.
 - 앱은 App Sandbox를 사용하지 않습니다. 북마크 데이터는 이동하거나 이름이 바뀐 항목을 다시 찾는 데 쓰이며, 오래된 북마크는 실행 시 자동으로 갱신됩니다.

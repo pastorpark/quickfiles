@@ -70,19 +70,11 @@ struct QuickAccessView: View {
                             isFocused: model.selection.focusedID == item.id
                         )
                             .id(item.id)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                handleTap(on: item)
-                            }
-                            .onTapGesture(count: 2) {
-                                model.selection.selectOnly(item.id, in: model.snapshot.orderedIDs)
-                                openOrReveal(item, modifierFlags: NSApp.currentEvent?.modifierFlags ?? [])
-                            }
-                            .onDrag {
-                                fileProvider(for: item)
-                            }
-                            .contextMenu {
-                                fileContextMenu(for: item)
+                            .overlay(tileInteraction(for: item))
+                            .accessibilityElement(children: .combine)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction {
+                                openOrReveal(item, modifierFlags: [])
                             }
                     }
                 }
@@ -142,19 +134,11 @@ struct QuickAccessView: View {
                             isFocused: model.selection.focusedID == item.id
                         )
                             .id(item.id)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                handleTap(on: item)
-                            }
-                            .onTapGesture(count: 2) {
-                                model.selection.selectOnly(item.id, in: model.snapshot.orderedIDs)
-                                openOrReveal(item, modifierFlags: NSApp.currentEvent?.modifierFlags ?? [])
-                            }
-                            .onDrag {
-                                fileProvider(for: item)
-                            }
-                            .contextMenu {
-                                fileContextMenu(for: item)
+                            .overlay(tileInteraction(for: item))
+                            .accessibilityElement(children: .combine)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction {
+                                openOrReveal(item, modifierFlags: [])
                             }
                     }
 
@@ -223,17 +207,80 @@ struct QuickAccessView: View {
         .background(WindowDragRegion())
     }
 
-    private func handleTap(on item: FileItem) {
-        let flags = NSApp.currentEvent?.modifierFlags ?? []
+    // MARK: - Tile interaction
+
+    private func tileInteraction(for item: FileItem) -> TileInteractionView {
+        TileInteractionView(
+            itemID: item.id,
+            isSelected: { model.selection.isSelected($0) },
+            onPress: { id, flags in
+                pressItem(id, modifierFlags: flags)
+            },
+            onActivate: { id, flags in
+                activateItem(id, modifierFlags: flags)
+            },
+            onContextSelection: { id in
+                contextSelect(id)
+            },
+            makeMenu: { id in
+                tileMenu(for: id)
+            },
+            dragURLs: { id in
+                draggableURLs(for: id)
+            },
+            onDragStateChange: { isDragging in
+                controller.setDraggingFiles(isDragging)
+            }
+        )
+    }
+
+    private func pressItem(_ id: FileItem.ID, modifierFlags: NSEvent.ModifierFlags) {
         let order = model.snapshot.orderedIDs
 
-        if flags.contains(.shift) {
-            model.selection.selectRange(to: item.id, in: order, additive: flags.contains(.command))
-        } else if flags.contains(.command) {
-            model.selection.toggle(item.id, in: order)
+        if modifierFlags.contains(.shift) {
+            model.selection.selectRange(to: id, in: order, additive: modifierFlags.contains(.command))
+        } else if modifierFlags.contains(.command) {
+            model.selection.toggle(id, in: order)
         } else {
-            model.selection.selectOnly(item.id, in: order)
+            model.selection.selectOnly(id, in: order)
         }
+    }
+
+    private func activateItem(_ id: FileItem.ID, modifierFlags: NSEvent.ModifierFlags) {
+        guard let item = model.snapshot.itemsByID[id] else { return }
+        model.selection.selectOnly(id, in: model.snapshot.orderedIDs)
+        openOrReveal(item, modifierFlags: modifierFlags)
+    }
+
+    private func contextSelect(_ id: FileItem.ID) {
+        guard !model.selection.isSelected(id) else { return }
+        model.selection.selectOnly(id, in: model.snapshot.orderedIDs)
+    }
+
+    private func draggableURLs(for id: FileItem.ID) -> [URL] {
+        if model.selection.isSelected(id) {
+            var seenPaths = Set<String>()
+            return model.selectedItems.compactMap { item in
+                seenPaths.insert(item.url.standardizedFileURL.path).inserted ? item.url : nil
+            }
+        }
+        return model.snapshot.itemsByID[id].map { [$0.url] } ?? []
+    }
+
+    private func tileMenu(for id: FileItem.ID) -> NSMenu? {
+        guard let item = model.snapshot.itemsByID[id] else { return nil }
+
+        let menu = NSMenu()
+        menu.addItem(ClosureMenuItem(title: "Finder에서 위치 보기") { [controller] in
+            controller.reveal(item)
+        })
+        menu.addItem(ClosureMenuItem(title: "열기") { [controller] in
+            controller.open(item)
+        })
+        menu.addItem(ClosureMenuItem(title: "복사") { [controller] in
+            controller.copy(item)
+        })
+        return menu
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> Bool {
@@ -279,31 +326,12 @@ struct QuickAccessView: View {
         }
     }
 
-    @ViewBuilder
-    private func fileContextMenu(for item: FileItem) -> some View {
-        Button("파인더에 위치 표시") {
-            controller.reveal(item)
-        }
-        Button("열기") {
-            controller.open(item)
-        }
-        Button("복사") {
-            controller.copy(item)
-        }
-    }
-
     private func openOrReveal(_ item: FileItem, modifierFlags: NSEvent.ModifierFlags) {
         if modifierFlags.contains(.command) {
             controller.reveal(item)
         } else {
             controller.open(item)
         }
-    }
-
-    private func fileProvider(for item: FileItem) -> NSItemProvider {
-        let provider = NSItemProvider(object: item.url as NSURL)
-        provider.suggestedName = item.displayName
-        return provider
     }
 
     private func move(_ item: FileItem) {

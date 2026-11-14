@@ -21,6 +21,7 @@
 		A1B2C3D4E5F6020000000012 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000012 /* LaunchAtLoginController.swift */; };
 		A1B2C3D4E5F6020000000013 /* SelectionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000013 /* SelectionModel.swift */; };
 		A1B2C3D4E5F6020000000014 /* PanelViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000014 /* PanelViewModel.swift */; };
+		A1B2C3D4E5F6020000000015 /* TileInteractionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000015 /* TileInteractionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +40,7 @@
 		A1B2C3D4E5F6030000000001 /* QuickFiles.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuickFiles.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D4E5F6010000000013 /* SelectionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionModel.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010000000014 /* PanelViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelViewModel.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6010000000015 /* TileInteractionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TileInteractionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,6 +98,7 @@
 		A1B2C3D4E5F6050000000005 /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F6010000000015 /* TileInteractionView.swift */,
 				A1B2C3D4E5F6010000000014 /* PanelViewModel.swift */,
 				A1B2C3D4E5F6010000000006 /* PanelController.swift */,
 				A1B2C3D4E5F6010000000007 /* QuickAccessView.swift */,
@@ -182,6 +185,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D4E5F6020000000015 /* TileInteractionView.swift in Sources */,
 				A1B2C3D4E5F6020000000014 /* PanelViewModel.swift in Sources */,
 				A1B2C3D4E5F6020000000013 /* SelectionModel.swift in Sources */,
 				A1B2C3D4E5F6020000000001 /* QuickFilesApp.swift in Sources */,

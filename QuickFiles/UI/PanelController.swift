@@ -15,6 +15,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     private var isMonitoring = false
     private var cancellables = Set<AnyCancellable>()
     private var staysVisibleUntilClosed = false
+    private var isDraggingFiles = false
     private var isPositioningPanel = false
 
     private(set) var viewModel: PanelViewModel?
@@ -97,8 +98,12 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         staysVisibleUntilClosed = true
     }
 
+    func setDraggingFiles(_ dragging: Bool) {
+        isDraggingFiles = dragging
+    }
+
     func windowDidResignKey(_ notification: Notification) {
-        guard !staysVisibleUntilClosed else { return }
+        guard !staysVisibleUntilClosed, !isDraggingFiles else { return }
         hide()
     }
 
@@ -108,7 +113,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     }
 
     @objc private func appDidResignActive() {
-        guard !staysVisibleUntilClosed else { return }
+        guard !staysVisibleUntilClosed, !isDraggingFiles else { return }
         hide()
     }
 

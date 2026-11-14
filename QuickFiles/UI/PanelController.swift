@@ -17,6 +17,8 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     private var staysVisibleUntilClosed = false
     private var isPositioningPanel = false
 
+    private(set) var viewModel: PanelViewModel?
+
     @Published var items: [FileItem] = []
     @Published var searchableItems: [FileItem] = []
     @Published var isLoading = false
@@ -50,7 +52,9 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     func show() {
         if panel == nil {
-            let root = QuickAccessView(store: store, controller: self)
+            let model = PanelViewModel(store: store, controller: self)
+            viewModel = model
+            let root = QuickAccessView(store: store, controller: self, model: model)
             let hosting = NSHostingController(rootView: root)
             let panel = NSPanel(
                 contentRect: NSRect(x: 0, y: 0, width: 760, height: 380),

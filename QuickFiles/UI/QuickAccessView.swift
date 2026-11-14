@@ -5,41 +5,7 @@ import QuickLookThumbnailing
 struct QuickAccessView: View {
     @ObservedObject var store: SettingsStore
     @ObservedObject var controller: PanelController
-    @State private var query = ""
-    @State private var effectiveQuery = ""
-    @State private var selectedItemID: FileItem.ID?
-
-    private var recentItems: [FileItem] {
-        sourceItems.filter { $0.kind == .recent }
-    }
-
-    private var bookmarkItems: [FileItem] {
-        store.bookmarks
-            .map { bookmark in
-                FileItem(url: bookmark.url, modifiedAt: nil, createdAt: nil, kind: .bookmark)
-            }
-            .filter(matchesSearch)
-    }
-
-    private var sourceItems: [FileItem] {
-        guard !searchTerms.isEmpty else { return controller.items }
-        return controller.searchableItems.filter(matchesSearch)
-    }
-
-    private var displayedItems: [FileItem] {
-        recentItems + bookmarkItems
-    }
-
-    private var searchTerms: [String] {
-        effectiveQuery
-            .split(whereSeparator: { $0.isWhitespace })
-            .map {
-                String($0).folding(
-                    options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
-                    locale: .current
-                )
-            }
-    }
+    @ObservedObject var model: PanelViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,34 +25,13 @@ struct QuickAccessView: View {
                 handleKeyEvent(event)
             }
         )
-        .onAppear {
-            selectFirstItemIfNeeded()
-        }
-        .task(id: query) {
-            if query.isEmpty {
-                effectiveQuery = ""
-                return
-            }
-            do {
-                try await Task.sleep(nanoseconds: 150_000_000)
-            } catch {
-                return
-            }
-            effectiveQuery = query
-        }
-        .onChange(of: displayedItems) { newItems in
-            if let selectedItemID, newItems.contains(where: { $0.id == selectedItemID }) {
-                return
-            }
-            selectedItemID = newItems.first?.id
-        }
     }
 
     private var header: some View {
         HStack(spacing: 14) {
             BrandGlyph()
 
-            TextField("파일 이름이나 폴더 경로 검색", text: $query)
+            TextField("파일 이름이나 폴더 경로 검색", text: $model.query)
                 .textFieldStyle(.plain)
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
 
@@ -118,19 +63,23 @@ struct QuickAccessView: View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 12) {
-                    ForEach(recentItems) { item in
-                        FileTile(item: item, isSelected: item.id == selectedItemID)
+                    ForEach(model.snapshot.recentItems) { item in
+                        FileTile(
+                            item: item,
+                            isSelected: model.selection.isSelected(item.id),
+                            isFocused: model.selection.focusedID == item.id
+                        )
                             .id(item.id)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                selectedItemID = item.id
+                                handleTap(on: item)
                             }
                             .onTapGesture(count: 2) {
+                                model.selection.selectOnly(item.id, in: model.snapshot.orderedIDs)
                                 openOrReveal(item, modifierFlags: NSApp.currentEvent?.modifierFlags ?? [])
                             }
                             .onDrag {
-                                selectedItemID = item.id
-                                return fileProvider(for: item)
+                                fileProvider(for: item)
                             }
                             .contextMenu {
                                 fileContextMenu(for: item)
@@ -140,19 +89,20 @@ struct QuickAccessView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
             }
-            .onChange(of: selectedItemID) { itemID in
-                guard let itemID, recentItems.contains(where: { $0.id == itemID }) else { return }
+            .onChange(of: model.selection.focusedID) { focusedID in
+                guard let focusedID,
+                      model.snapshot.recentItems.contains(where: { $0.id == focusedID }) else { return }
                 withAnimation(.easeOut(duration: 0.12)) {
-                    proxy.scrollTo(itemID, anchor: .center)
+                    proxy.scrollTo(focusedID, anchor: .center)
                 }
             }
             .overlay {
-                if recentItems.isEmpty {
+                if model.snapshot.recentItems.isEmpty {
                     VStack(spacing: 6) {
-                        Image(systemName: searchTerms.isEmpty ? "clock" : "magnifyingglass")
+                        Image(systemName: model.snapshot.isSearching ? "magnifyingglass" : "clock")
                             .font(.system(size: 24, weight: .medium))
                             .foregroundStyle(QuickFilesTheme.accent)
-                        Text(searchTerms.isEmpty ? "표시할 변경 파일이 없습니다" : "검색 결과가 없습니다")
+                        Text(model.snapshot.isSearching ? "검색 결과가 없습니다" : "표시할 변경 파일이 없습니다")
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                         Text("검색 폴더와 제외 폴더는 설정에서 관리할 수 있습니다.")
                             .font(.caption)
@@ -172,7 +122,7 @@ struct QuickAccessView: View {
                 Label("북마크", systemImage: "bookmark.fill")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(QuickFilesTheme.accent)
-                Text("\(bookmarkItems.count)")
+                Text("\(model.snapshot.bookmarkItems.count)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
@@ -185,19 +135,23 @@ struct QuickAccessView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 8) {
-                    ForEach(bookmarkItems) { item in
-                        BookmarkTile(item: item, isSelected: item.id == selectedItemID)
+                    ForEach(model.snapshot.bookmarkItems) { item in
+                        BookmarkTile(
+                            item: item,
+                            isSelected: model.selection.isSelected(item.id),
+                            isFocused: model.selection.focusedID == item.id
+                        )
                             .id(item.id)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                selectedItemID = item.id
+                                handleTap(on: item)
                             }
                             .onTapGesture(count: 2) {
+                                model.selection.selectOnly(item.id, in: model.snapshot.orderedIDs)
                                 openOrReveal(item, modifierFlags: NSApp.currentEvent?.modifierFlags ?? [])
                             }
                             .onDrag {
-                                selectedItemID = item.id
-                                return fileProvider(for: item)
+                                fileProvider(for: item)
                             }
                             .contextMenu {
                                 fileContextMenu(for: item)
@@ -233,13 +187,19 @@ struct QuickAccessView: View {
     private var footer: some View {
         HStack(spacing: 10) {
             Button {
-                if let item = selectedItem {
+                if let item = model.primaryItem {
                     move(item)
                 }
             } label: {
                 Label("이동", systemImage: "folder")
             }
-            .disabled(selectedItem == nil)
+            .disabled(model.primaryItem == nil)
+
+            if model.selection.count > 1 {
+                Text("\(model.selection.count)개 선택됨")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer()
 
@@ -263,20 +223,16 @@ struct QuickAccessView: View {
         .background(WindowDragRegion())
     }
 
-    private var selectedItem: FileItem? {
-        guard let selectedItemID else { return nil }
-        return displayedItems.first { $0.id == selectedItemID }
-    }
+    private func handleTap(on item: FileItem) {
+        let flags = NSApp.currentEvent?.modifierFlags ?? []
+        let order = model.snapshot.orderedIDs
 
-    private func matchesSearch(_ item: FileItem) -> Bool {
-        let terms = searchTerms
-        guard !terms.isEmpty else { return true }
-        return terms.allSatisfy(item.searchText.contains)
-    }
-
-    private func selectFirstItemIfNeeded() {
-        if selectedItemID == nil || !displayedItems.contains(where: { $0.id == selectedItemID }) {
-            selectedItemID = displayedItems.first?.id
+        if flags.contains(.shift) {
+            model.selection.selectRange(to: item.id, in: order, additive: flags.contains(.command))
+        } else if flags.contains(.command) {
+            model.selection.toggle(item.id, in: order)
+        } else {
+            model.selection.selectOnly(item.id, in: order)
         }
     }
 
@@ -289,27 +245,34 @@ struct QuickAccessView: View {
             return false
         }
 
+        let order = model.snapshot.orderedIDs
+        let extending = event.modifierFlags.contains(.shift)
+
         switch event.keyCode {
         case 123:
-            moveSelection(by: -1)
+            model.selection.moveFocus(by: -1, in: order, extending: extending)
             return true
         case 124:
-            moveSelection(by: 1)
+            model.selection.moveFocus(by: 1, in: order, extending: extending)
             return true
         case 125:
-            moveSelection(by: 5)
+            model.selection.moveFocus(by: 5, in: order, extending: extending)
             return true
         case 126:
-            moveSelection(by: -5)
+            model.selection.moveFocus(by: -5, in: order, extending: extending)
             return true
         case 36, 76:
-            if let selectedItem {
-                openOrReveal(selectedItem, modifierFlags: event.modifierFlags)
+            if let item = model.primaryItem {
+                openOrReveal(item, modifierFlags: event.modifierFlags)
                 return true
             }
             return false
         case 53:
-            controller.hide()
+            if model.selection.count > 1 {
+                model.selection.collapseToFocus(in: order)
+            } else {
+                controller.hide()
+            }
             return true
         default:
             return false
@@ -335,18 +298,6 @@ struct QuickAccessView: View {
         } else {
             controller.open(item)
         }
-    }
-
-    private func moveSelection(by offset: Int) {
-        guard !displayedItems.isEmpty else { return }
-        guard let selectedItemID,
-              let currentIndex = displayedItems.firstIndex(where: { $0.id == selectedItemID }) else {
-            self.selectedItemID = displayedItems.first?.id
-            return
-        }
-
-        let nextIndex = min(max(currentIndex + offset, 0), displayedItems.count - 1)
-        self.selectedItemID = displayedItems[nextIndex].id
     }
 
     private func fileProvider(for item: FileItem) -> NSItemProvider {
@@ -381,6 +332,7 @@ struct QuickAccessView: View {
 private struct FileTile: View {
     let item: FileItem
     let isSelected: Bool
+    let isFocused: Bool
 
     var body: some View {
         VStack(spacing: 6) {
@@ -407,16 +359,26 @@ private struct FileTile: View {
         .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .stroke(isSelected ? QuickFilesTheme.accent.opacity(0.55) : Color.clear, lineWidth: 1.5)
+                .stroke(borderColor, lineWidth: isSelected ? 1.5 : 1)
         }
         .shadow(color: isSelected ? QuickFilesTheme.accent.opacity(0.14) : .clear, radius: 7, y: 2)
+    }
+
+    private var borderColor: Color {
+        if isSelected {
+            return QuickFilesTheme.accent.opacity(0.65)
+        }
+        if isFocused {
+            return QuickFilesTheme.accent.opacity(0.45)
+        }
+        return .clear
     }
 
     @ViewBuilder
     private var tileBackground: some View {
         if isSelected {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(Color.accentColor.opacity(0.14))
+                .fill(QuickFilesTheme.accent.opacity(0.16))
         } else {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor).opacity(0.38))
@@ -427,6 +389,7 @@ private struct FileTile: View {
 private struct BookmarkTile: View {
     let item: FileItem
     let isSelected: Bool
+    let isFocused: Bool
 
     var body: some View {
         VStack(spacing: 6) {
@@ -452,15 +415,25 @@ private struct BookmarkTile: View {
         .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .stroke(isSelected ? QuickFilesTheme.accent.opacity(0.5) : Color.clear, lineWidth: 1.25)
+                .stroke(borderColor, lineWidth: isSelected ? 1.5 : 1)
         }
+    }
+
+    private var borderColor: Color {
+        if isSelected {
+            return QuickFilesTheme.accent.opacity(0.65)
+        }
+        if isFocused {
+            return QuickFilesTheme.accent.opacity(0.45)
+        }
+        return .clear
     }
 
     @ViewBuilder
     private var tileBackground: some View {
         if isSelected {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .fill(Color.accentColor.opacity(0.14))
+                .fill(QuickFilesTheme.accent.opacity(0.16))
         } else {
             Color.clear
         }

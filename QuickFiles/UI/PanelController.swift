@@ -308,14 +308,17 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         panel.wantsPreviewControl = true
         previewPhase = .opening                       // BEFORE key-window changes
         guard let preview = QLPreviewPanel.shared() else { previewPhase = .closed; panel.wantsPreviewControl = false; return }
-        preview.updateController()                    // our panel is still key → finds QuickPanelWindow
+        preview.makeKeyAndOrderFront(nil)             // Quick Look discovers its controller HERE (accepts → begin)
         guard (preview.currentController as AnyObject?) === panel else {
             NSLog("QuickFiles: Quick Look did not pick the quick panel as controller")
-            previewPhase = .closed; panel.wantsPreviewControl = false; NSSound.beep(); return
+            preview.orderOut(nil)
+            previewPhase = .closed
+            panel.wantsPreviewControl = false
+            NSSound.beep()
+            return
         }
         preview.reloadData()
         preview.currentPreviewItemIndex = 0
-        preview.makeKeyAndOrderFront(nil)
         previewPhase = .open
 
         // Track the preview window itself while we own it: a native dismissal (Space/Esc/close

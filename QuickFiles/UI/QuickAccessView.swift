@@ -230,6 +230,15 @@ struct QuickAccessView: View {
             .help("다른 폴더로 이동")
 
             Button {
+                toggleQuickLook()
+            } label: {
+                Label("훑어보기", systemImage: "eye")
+            }
+            .help("훑어보기 (Space, ⌘Y)")
+            .accessibilityLabel("훑어보기")
+            .disabled(model.selectedItems.isEmpty && model.primaryItem == nil)
+
+            Button {
                 _ = activateSelection(reveal: false)
             } label: {
                 Label("열기", systemImage: "arrow.up.forward.app")
@@ -251,7 +260,7 @@ struct QuickAccessView: View {
 
             Spacer()
 
-            Text("↵ 열기   ⌘↵ Finder   ⇧ 클릭 범위 선택   ⌘ 클릭 추가 선택")
+            Text("Space 훑어보기   ↵ 열기   ⌘↵ Finder   ⇧/⌘ 클릭 여러 개 선택")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
@@ -341,6 +350,10 @@ struct QuickAccessView: View {
         let suffix = items.count > 1 ? " (\(items.count)개)" : ""
 
         let menu = NSMenu()
+        menu.addItem(ClosureMenuItem(title: "훑어보기\(suffix)") { [controller] in
+            controller.toggleQuickLook(items)
+        })
+        menu.addItem(.separator())
         menu.addItem(ClosureMenuItem(title: "열기\(suffix)") { [controller] in
             controller.open(items)
         })
@@ -388,6 +401,12 @@ struct QuickAccessView: View {
         // Reserved for other uses: never swallow them.
         if event.modifierFlags.contains(.control) || event.modifierFlags.contains(.option) {
             return false
+        }
+
+        // Cmd+Y: Quick Look in both modes (the search field does not use it).
+        if event.keyCode == 16 && command && !shift {
+            toggleQuickLook()
+            return true
         }
 
         // Keys shared by both modes
@@ -448,6 +467,9 @@ struct QuickAccessView: View {
         case 8 where command:
             controller.copy(model.selectedItems)
             return true
+        case 49 where !command && !shift:
+            toggleQuickLook()
+            return true
         default:
             return false
         }
@@ -505,6 +527,14 @@ struct QuickAccessView: View {
         } else {
             controller.open(item)
         }
+    }
+
+    private func toggleQuickLook() {
+        var items = model.selectedItems
+        if items.isEmpty, let primary = model.primaryItem {
+            items = [primary]
+        }
+        controller.toggleQuickLook(items)
     }
 
     private func moveSelection() {

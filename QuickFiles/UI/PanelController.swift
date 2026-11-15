@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Quartz
 import SwiftUI
 
 @MainActor
@@ -7,7 +8,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     private let store: SettingsStore
     private let scanner = RecentFileScanner()
     private let eventMonitor = FileSystemEventMonitor()
-    private var panel: NSPanel?
+    private var panel: QuickPanelWindow?
     private var refreshTask: Task<Void, Never>?
     private var pendingChangesByPath: [String: FileSystemChange] = [:]
     private var pendingFullRefresh = false
@@ -19,6 +20,10 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     private var isPositioningPanel = false
     private var modalDepth = 0
     private var presentationGeneration = 0
+
+    private enum PreviewPhase { case closed, opening, open }
+    private var previewPhase: PreviewPhase = .closed
+    private var isPreviewVisible: Bool { QLPreviewPanel.sharedPreviewPanelExists() && QLPreviewPanel.shared().isVisible }
 
     private var isPresentingModal: Bool { modalDepth > 0 }
 
@@ -65,7 +70,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             let root = QuickAccessView(store: store, controller: self, model: model)
             let hosting = NSHostingController(rootView: root)
             hosting.sizingOptions = [.minSize]
-            let panel = NSPanel(
+            let panel = QuickPanelWindow(
                 contentRect: NSRect(
                     x: 0,
                     y: 0,
@@ -76,6 +81,10 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
                 backing: .buffered,
                 defer: false
             )
+            panel.onPreviewToggleKey = { [weak self] in self?.closeQuickLook(restoreFocus: true) }
+            panel.onPreviewControlEnded = { [weak self] in
+                DispatchQueue.main.async { self?.reconcilePreviewState() }
+            }
             panel.titleVisibility = .hidden
             panel.titlebarAppearsTransparent = true
             panel.isMovableByWindowBackground = false
@@ -112,6 +121,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     }
 
     func hide() {
+        closeQuickLook(restoreFocus: false)
         staysVisibleUntilClosed = false
         panel?.alphaValue = 1.0
         panel?.orderOut(nil)
@@ -131,13 +141,24 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             guard let self, !self.isDraggingFiles else { return }
             guard self.panel?.isVisible == true,
                   !self.staysVisibleUntilClosed,
-                  !self.isPresentingModal else { return }
+                  !self.isPresentingModal,
+                  self.previewPhase == .closed else { return }
             guard !NSApp.isActive || self.panel?.isKeyWindow != true else { return }
             self.hide()
         }
     }
 
     func windowDidResignKey(_ notification: Notification) {
+        if previewPhase != .closed {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if NSApp.keyWindow is QLPreviewPanel { return }          // focus moved to our preview: keep the panel
+                self.closeQuickLook(restoreFocus: false)
+                if !self.staysVisibleUntilClosed, !self.isPresentingModal, !self.isDraggingFiles,
+                   self.panel?.isKeyWindow != true { self.hide() }        // e.g. Settings window was clicked
+            }
+            return
+        }
         guard !staysVisibleUntilClosed, !isDraggingFiles, !isPresentingModal else { return }
         hide()
     }
@@ -156,6 +177,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     }
 
     @objc private func appDidResignActive() {
+        if previewPhase != .closed || isPreviewVisible { closeQuickLook(restoreFocus: false) }
         guard !staysVisibleUntilClosed, !isDraggingFiles, !isPresentingModal else { return }
         hide()
     }
@@ -185,6 +207,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     /// Run an AppKit modal (NSOpenPanel / NSAlert runModal) without the quick panel hiding itself.
     func runModal<T>(_ body: () -> T) -> T {
         let wasVisible = panel?.isVisible == true
+        closeQuickLook(restoreFocus: false)
         modalDepth += 1
         defer {
             modalDepth -= 1
@@ -256,6 +279,48 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     /// Make the window itself first responder (ends text editing, results get keyboard focus).
     func focusResults() {
         panel?.makeFirstResponder(nil)
+    }
+
+    // MARK: - Quick Look
+
+    /// Space / Cmd+Y / menu / footer.
+    func toggleQuickLook(_ items: [FileItem]) {
+        if previewPhase != .closed || isPreviewVisible { closeQuickLook(restoreFocus: true) } else { openQuickLook(items) }
+    }
+
+    private func openQuickLook(_ items: [FileItem]) {
+        let urls = Self.uniqueURLs(for: items)
+        guard let panel, panel.isVisible, modalDepth == 0, !isDraggingFiles, !urls.isEmpty else { NSSound.beep(); return }
+        panel.previewURLs = urls
+        panel.wantsPreviewControl = true
+        previewPhase = .opening                       // BEFORE key-window changes
+        guard let preview = QLPreviewPanel.shared() else { previewPhase = .closed; panel.wantsPreviewControl = false; return }
+        preview.updateController()                    // our panel is still key → finds QuickPanelWindow
+        guard (preview.currentController as AnyObject?) === panel else {
+            NSLog("QuickFiles: Quick Look did not pick the quick panel as controller")
+            previewPhase = .closed; panel.wantsPreviewControl = false; NSSound.beep(); return
+        }
+        preview.reloadData()
+        preview.currentPreviewItemIndex = 0
+        preview.makeKeyAndOrderFront(nil)
+        previewPhase = .open
+    }
+
+    /// Idempotent. restoreFocus: give the keyboard back to the quick panel (only after a user dismissal).
+    func closeQuickLook(restoreFocus: Bool) {
+        guard previewPhase != .closed || isPreviewVisible else { return }
+        previewPhase = .closed
+        panel?.wantsPreviewControl = false
+        if isPreviewVisible { QLPreviewPanel.shared().orderOut(nil) }
+        if restoreFocus, NSApp.isActive, modalDepth == 0, let panel, panel.isVisible {
+            panel.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    /// After Quick Look gave up control (e.g. user closed it with its own Space/Esc/close button).
+    private func reconcilePreviewState() {
+        guard previewPhase != .closed, !isPreviewVisible else { return }
+        closeQuickLook(restoreFocus: true)
     }
 
     /// Moves the items, then hides the panel when nothing failed or reports the failure inside the panel.

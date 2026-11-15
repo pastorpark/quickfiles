@@ -11,7 +11,7 @@ let package = Package(
             name: "QuickFilesCore",
             path: "QuickFiles/Models",
             exclude: ["AppModels.swift"],
-            sources: ["SelectionModel.swift", "MovePlanner.swift"]
+            sources: ["SelectionModel.swift", "MovePlanner.swift", "GridNavigation.swift"]
         ),
         .testTarget(
             name: "QuickFilesCoreTests",

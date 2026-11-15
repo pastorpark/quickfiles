@@ -66,7 +66,12 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             let hosting = NSHostingController(rootView: root)
             hosting.sizingOptions = [.minSize]
             let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: store.panelWidth, height: 380),
+                contentRect: NSRect(
+                    x: 0,
+                    y: 0,
+                    width: QuickAccessLayout.panelWidth,
+                    height: store.panelHeight
+                ),
                 styleMask: [.titled, .fullSizeContentView, .resizable],
                 backing: .buffered,
                 defer: false
@@ -78,10 +83,18 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             panel.isReleasedWhenClosed = false
             panel.level = .floating
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            panel.contentMinSize = NSSize(width: 640, height: 380)
-            panel.contentMaxSize = NSSize(width: 1600, height: 380)
             panel.delegate = self
             panel.contentViewController = hosting
+            // Set after attaching the hosting controller: its .minSize sizing option can
+            // otherwise overwrite the limits below.
+            panel.contentMinSize = NSSize(
+                width: QuickAccessLayout.panelWidth,
+                height: QuickAccessLayout.minPanelHeight
+            )
+            panel.contentMaxSize = NSSize(
+                width: QuickAccessLayout.panelWidth,
+                height: QuickAccessLayout.maxPanelHeight
+            )
             self.panel = panel
         }
 
@@ -136,10 +149,10 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         keepVisibleUntilClosed()
     }
 
-    /// Persists the user's chosen width once, at the end of a live resize (not on every tick).
+    /// Persists the user's chosen height once, at the end of a live resize (not on every tick).
     func windowDidEndLiveResize(_ notification: Notification) {
         guard let panel else { return }
-        store.panelWidth = min(max(Double(panel.contentLayoutRect.width), 640), 1600)
+        store.panelHeight = SettingsStore.clampPanelHeight(Double(panel.contentLayoutRect.height))
     }
 
     @objc private func appDidResignActive() {
@@ -538,14 +551,18 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         // A shrink can move the frame too; flag it before the resize so windowDidMove stays quiet.
         isPositioningPanel = true
 
-        if panel.frame.width > visible.width - 40 {
-            panel.setContentSize(NSSize(width: max(640, visible.width - 40), height: 380))
+        // The width is fixed, so only a frame taller than the screen needs a temporary fit.
+        // This smaller height is deliberately not persisted: only a live resize saves it.
+        let titlebar = panel.frame.height - panel.contentLayoutRect.height
+        if panel.frame.height > visible.height - 100 {
+            let newHeight = max(QuickAccessLayout.minPanelHeight, visible.height - 100 - titlebar)
+            panel.setContentSize(NSSize(width: QuickAccessLayout.panelWidth, height: newHeight))
         }
 
         let size = panel.frame.size
         let origin = NSPoint(
             x: min(max(visible.midX - size.width / 2, visible.minX), visible.maxX - size.width),
-            y: max(visible.minY, visible.maxY - size.height - 90)
+            y: min(max(visible.maxY - size.height - 90, visible.minY), visible.maxY - size.height)
         )
         panel.setFrameOrigin(origin)
         DispatchQueue.main.async { [weak self] in

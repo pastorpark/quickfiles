@@ -23,6 +23,8 @@
 		A1B2C3D4E5F6020000000014 /* PanelViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000014 /* PanelViewModel.swift */; };
 		A1B2C3D4E5F6020000000015 /* TileInteractionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000015 /* TileInteractionView.swift */; };
 		A1B2C3D4E5F6020000000016 /* MovePlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000016 /* MovePlanner.swift */; };
+		A1B2C3D4E5F6020000000017 /* GridNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000017 /* GridNavigation.swift */; };
+		A1B2C3D4E5F6020000000018 /* QuickPanelWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6010000000018 /* QuickPanelWindow.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +45,8 @@
 		A1B2C3D4E5F6010000000014 /* PanelViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelViewModel.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010000000015 /* TileInteractionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TileInteractionView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6010000000016 /* MovePlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovePlanner.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6010000000017 /* GridNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridNavigation.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6010000000018 /* QuickPanelWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPanelWindow.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +83,7 @@
 		A1B2C3D4E5F6050000000003 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F6010000000017 /* GridNavigation.swift */,
 				A1B2C3D4E5F6010000000016 /* MovePlanner.swift */,
 				A1B2C3D4E5F6010000000013 /* SelectionModel.swift */,
 				A1B2C3D4E5F6010000000002 /* AppModels.swift */,
@@ -101,6 +106,7 @@
 		A1B2C3D4E5F6050000000005 /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F6010000000018 /* QuickPanelWindow.swift */,
 				A1B2C3D4E5F6010000000015 /* TileInteractionView.swift */,
 				A1B2C3D4E5F6010000000014 /* PanelViewModel.swift */,
 				A1B2C3D4E5F6010000000006 /* PanelController.swift */,
@@ -188,6 +194,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D4E5F6020000000018 /* QuickPanelWindow.swift in Sources */,
+				A1B2C3D4E5F6020000000017 /* GridNavigation.swift in Sources */,
 				A1B2C3D4E5F6020000000016 /* MovePlanner.swift in Sources */,
 				A1B2C3D4E5F6020000000015 /* TileInteractionView.swift in Sources */,
 				A1B2C3D4E5F6020000000014 /* PanelViewModel.swift in Sources */,

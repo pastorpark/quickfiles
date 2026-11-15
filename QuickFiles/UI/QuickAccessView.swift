@@ -2,6 +2,17 @@ import SwiftUI
 import AppKit
 import QuickLookThumbnailing
 
+enum QuickAccessLayout {
+    static let columns = 6
+    static let tileWidth: CGFloat = 112
+    static let tileSpacing: CGFloat = 12
+    static let gridHorizontalPadding: CGFloat = 16
+    static let panelWidth: CGFloat = 800
+    static let minPanelHeight: CGFloat = 420
+    static let maxPanelHeight: CGFloat = 1000
+    static let defaultPanelHeight: CGFloat = 520
+}
+
 struct QuickAccessView: View {
     @ObservedObject var store: SettingsStore
     @ObservedObject var controller: PanelController
@@ -19,10 +30,8 @@ struct QuickAccessView: View {
             Divider().opacity(0.55)
             footer
         }
-        .frame(
-            minWidth: 640, idealWidth: 760, maxWidth: .infinity,
-            minHeight: 380, idealHeight: 380, maxHeight: .infinity
-        )
+        .frame(width: QuickAccessLayout.panelWidth)
+        .frame(minHeight: QuickAccessLayout.minPanelHeight, maxHeight: .infinity)
         .background(.regularMaterial)
         .tint(QuickFilesTheme.accent)
         .background(
@@ -86,8 +95,15 @@ struct QuickAccessView: View {
 
     private var recentGrid: some View {
         ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 12) {
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVGrid(
+                    columns: Array(
+                        repeating: GridItem(.fixed(QuickAccessLayout.tileWidth), spacing: QuickAccessLayout.tileSpacing),
+                        count: QuickAccessLayout.columns
+                    ),
+                    alignment: .leading,
+                    spacing: QuickAccessLayout.tileSpacing
+                ) {
                     ForEach(model.snapshot.recentItems) { item in
                         FileTile(
                             item: item,
@@ -103,9 +119,10 @@ struct QuickAccessView: View {
                             }
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, QuickAccessLayout.gridHorizontalPadding)
                 .padding(.vertical, 10)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onChange(of: model.selection.focusedID) { focusedID in
                 guard let focusedID,
                       model.snapshot.recentItems.contains(where: { $0.id == focusedID }) else { return }
@@ -532,7 +549,7 @@ private struct FileTile: View {
                     .lineLimit(1)
             }
         }
-        .frame(width: 108, height: 122, alignment: .top)
+        .frame(width: QuickAccessLayout.tileWidth, height: 122, alignment: .top)
         .padding(.vertical, 7)
         .background(tileBackground)
         .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))

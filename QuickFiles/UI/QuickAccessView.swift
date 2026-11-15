@@ -434,10 +434,10 @@ struct QuickAccessView: View {
             model.selection.moveFocus(by: 1, in: order, extending: shift)
             return true
         case 125:
-            model.selection.moveFocus(by: 5, in: order, extending: shift)
+            moveVertically(.down, extending: shift)
             return true
         case 126:
-            model.selection.moveFocus(by: -5, in: order, extending: shift)
+            moveVertically(.up, extending: shift)
             return true
         case 48:
             focusSearchField()
@@ -451,6 +451,22 @@ struct QuickAccessView: View {
         default:
             return false
         }
+    }
+
+    /// Results-mode ↑/↓: recents move one grid row (same column, ragged last row clamped);
+    /// from the last row focus drops to the bookmark strip and ↑ returns to the last recent.
+    private func moveVertically(_ direction: GridDirection, extending: Bool) {
+        let order = model.snapshot.orderedIDs
+        guard let focused = model.selection.focusedID, let from = order.firstIndex(of: focused) else {
+            model.selection.moveFocus(by: direction == .down ? 1 : -1, in: order, extending: extending)
+            return
+        }
+        guard let target = GridNavigation.target(from: focused, direction: direction,
+                  recentIDs: model.snapshot.recentItems.map(\.id),
+                  bookmarkIDs: model.snapshot.bookmarkItems.map(\.id),
+                  columns: QuickAccessLayout.columns),
+              let to = order.firstIndex(of: target) else { return }
+        model.selection.moveFocus(by: to - from, in: order, extending: extending)   // keeps Shift anchor
     }
 
     /// Tab from the results: put the caret back into the search field.

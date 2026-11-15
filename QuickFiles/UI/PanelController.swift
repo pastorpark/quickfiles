@@ -551,6 +551,13 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         // A shrink can move the frame too; flag it before the resize so windowDidMove stays quiet.
         isPositioningPanel = true
 
+        // Restore the user's height first: a previous show on a short screen may have fitted the
+        // panel to that screen, and that temporary size must not stick on a taller one. Never
+        // persisted here — only a live resize saves the height.
+        if abs(panel.contentLayoutRect.height - CGFloat(store.panelHeight)) > 1 {
+            panel.setContentSize(NSSize(width: QuickAccessLayout.panelWidth, height: CGFloat(store.panelHeight)))
+        }
+
         // The width is fixed, so only a frame taller than the screen needs a temporary fit.
         // This smaller height is deliberately not persisted: only a live resize saves it.
         let titlebar = panel.frame.height - panel.contentLayoutRect.height

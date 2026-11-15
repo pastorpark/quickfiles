@@ -23,6 +23,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     private enum PreviewPhase { case closed, opening, open }
     private var previewPhase: PreviewPhase = .closed
+    private var previewObservers: [NSObjectProtocol] = []
     private var isPreviewVisible: Bool { QLPreviewPanel.sharedPreviewPanelExists() && QLPreviewPanel.shared().isVisible }
 
     private var isPresentingModal: Bool { modalDepth > 0 }
@@ -83,7 +84,7 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
             )
             panel.onPreviewToggleKey = { [weak self] in self?.closeQuickLook(restoreFocus: true) }
             panel.onPreviewControlEnded = { [weak self] in
-                DispatchQueue.main.async { self?.reconcilePreviewState() }
+                self?.schedulePreviewReconcile()
             }
             panel.titleVisibility = .hidden
             panel.titlebarAppearsTransparent = true
@@ -150,17 +151,16 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     func windowDidResignKey(_ notification: Notification) {
         if previewPhase != .closed {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if NSApp.keyWindow is QLPreviewPanel { return }          // focus moved to our preview: keep the panel
-                self.closeQuickLook(restoreFocus: false)
-                if !self.staysVisibleUntilClosed, !self.isPresentingModal, !self.isDraggingFiles,
-                   self.panel?.isKeyWindow != true { self.hide() }        // e.g. Settings window was clicked
-            }
+            schedulePreviewReconcile()
             return
         }
         guard !staysVisibleUntilClosed, !isDraggingFiles, !isPresentingModal else { return }
         hide()
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard previewPhase != .closed else { return }
+        schedulePreviewReconcile()
     }
 
     func windowDidMove(_ notification: Notification) {
@@ -173,7 +173,14 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     /// Persists the user's chosen height once, at the end of a live resize (not on every tick).
     func windowDidEndLiveResize(_ notification: Notification) {
         guard let panel else { return }
-        store.panelHeight = SettingsStore.clampPanelHeight(Double(panel.contentLayoutRect.height))
+        store.panelHeight = SettingsStore.clampPanelHeight(Double(contentHeight(of: panel)))
+    }
+
+    /// Full content height. With `.fullSizeContentView` the layout rect excludes the titlebar safe
+    /// area while `setContentSize(_:)` sets the full content height; mixing them shrinks the panel
+    /// on every reopen, so every height comparison goes through this one measure.
+    private func contentHeight(of panel: NSWindow) -> CGFloat {
+        panel.contentRect(forFrameRect: panel.frame).height
     }
 
     @objc private func appDidResignActive() {
@@ -285,7 +292,13 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
 
     /// Space / Cmd+Y / menu / footer.
     func toggleQuickLook(_ items: [FileItem]) {
-        if previewPhase != .closed || isPreviewVisible { closeQuickLook(restoreFocus: true) } else { openQuickLook(items) }
+        if isPreviewVisible {
+            closeQuickLook(restoreFocus: true)
+        } else {
+            // A preview closed natively left stale state behind; clear it so this press opens again.
+            if previewPhase != .closed { previewPhase = .closed; panel?.wantsPreviewControl = false }
+            openQuickLook(items)
+        }
     }
 
     private func openQuickLook(_ items: [FileItem]) {
@@ -304,11 +317,36 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         preview.currentPreviewItemIndex = 0
         preview.makeKeyAndOrderFront(nil)
         previewPhase = .open
+
+        // Track the preview window itself while we own it: a native dismissal (Space/Esc/close
+        // button) must reach reconcilePreviewState instead of leaving us believing it is open.
+        previewObservers.forEach(NotificationCenter.default.removeObserver)
+        previewObservers.removeAll()
+        previewObservers.append(
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didResignKeyNotification,
+                object: preview,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.schedulePreviewReconcile() }
+            }
+        )
+        previewObservers.append(
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: preview,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.schedulePreviewReconcile() }
+            }
+        )
     }
 
     /// Idempotent. restoreFocus: give the keyboard back to the quick panel (only after a user dismissal).
     func closeQuickLook(restoreFocus: Bool) {
         guard previewPhase != .closed || isPreviewVisible else { return }
+        previewObservers.forEach(NotificationCenter.default.removeObserver)
+        previewObservers.removeAll()
         previewPhase = .closed
         panel?.wantsPreviewControl = false
         if isPreviewVisible { QLPreviewPanel.shared().orderOut(nil) }
@@ -317,10 +355,27 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         }
     }
 
-    /// After Quick Look gave up control (e.g. user closed it with its own Space/Esc/close button).
+    /// Coalesces preview bookkeeping into the next run-loop turn, after key-window changes settle.
+    private func schedulePreviewReconcile() {
+        DispatchQueue.main.async { [weak self] in self?.reconcilePreviewState() }
+    }
+
+    /// Brings the Quick Look bookkeeping back in line with what the user actually sees.
     private func reconcilePreviewState() {
-        guard previewPhase != .closed, !isPreviewVisible else { return }
-        closeQuickLook(restoreFocus: true)
+        guard previewPhase != .closed else { return }
+        let key = NSApp.keyWindow
+        let keyIsOurs = key == nil || key === panel || key is QLPreviewPanel
+        if isPreviewVisible && keyIsOurs { return }            // preview open, focus on preview or our panel: all fine
+        if !NSApp.isActive { closeQuickLook(restoreFocus: false); return }   // appDidResignActive applies the hide policy
+        if keyIsOurs {
+            // Preview was dismissed natively (its Space/Esc/close button): give the keyboard back to the panel.
+            closeQuickLook(restoreFocus: true)
+        } else {
+            // Another window of ours (e.g. Settings) took focus: close the preview, never steal focus back,
+            // and apply the normal hide policy for the quick panel.
+            closeQuickLook(restoreFocus: false)
+            if !staysVisibleUntilClosed, !isPresentingModal, !isDraggingFiles { hide() }
+        }
     }
 
     /// Moves the items, then hides the panel when nothing failed or reports the failure inside the panel.
@@ -619,15 +674,15 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
         // Restore the user's height first: a previous show on a short screen may have fitted the
         // panel to that screen, and that temporary size must not stick on a taller one. Never
         // persisted here — only a live resize saves the height.
-        if abs(panel.contentLayoutRect.height - CGFloat(store.panelHeight)) > 1 {
+        if abs(contentHeight(of: panel) - CGFloat(store.panelHeight)) > 1 {
             panel.setContentSize(NSSize(width: QuickAccessLayout.panelWidth, height: CGFloat(store.panelHeight)))
         }
 
         // The width is fixed, so only a frame taller than the screen needs a temporary fit.
         // This smaller height is deliberately not persisted: only a live resize saves it.
-        let titlebar = panel.frame.height - panel.contentLayoutRect.height
+        let chrome = panel.frame.height - contentHeight(of: panel)
         if panel.frame.height > visible.height - 100 {
-            let newHeight = max(QuickAccessLayout.minPanelHeight, visible.height - 100 - titlebar)
+            let newHeight = max(QuickAccessLayout.minPanelHeight, visible.height - 100 - chrome)
             panel.setContentSize(NSSize(width: QuickAccessLayout.panelWidth, height: newHeight))
         }
 

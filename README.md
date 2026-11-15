@@ -8,11 +8,11 @@ QuickFiles는 macOS 메뉴 막대에서 실행되는 최근 파일 검색 유틸
 - 기본 단축키 `Command + Shift + /`로 QuickFiles 패널 열기
 - 데스크톱, 다운로드, 문서 폴더의 최근 파일 자동 스캔
 - 파일명과 상위 폴더 경로 기반 검색
-- Quick Look 썸네일을 사용한 파일 미리보기
+- Quick Look 썸네일을 사용한 파일 미리보기, `Space`/`Command + Y`로 훑어보기(Quick Look)
 - `Command`/`Shift` 클릭과 `Shift` + 방향키로 여러 파일 선택
 - 선택한 파일 한꺼번에 열기, Finder에서 보기, 복사, 드래그, 다른 폴더로 이동
 - 키보드 방향키로 항목 이동, `Enter`로 열기, `Command + Enter`로 Finder 위치 표시
-- 너비를 조절할 수 있는 패널(크기 기억), 마우스가 있는 화면에 표시
+- 한 줄에 6개씩 세로로 스크롤되는 파일 그리드, 높이를 조절할 수 있는 패널(크기 기억), 마우스가 있는 화면에 표시
 - 자주 쓰는 파일과 폴더 북마크
 - 검색 폴더, 제외 폴더, 제외 확장자 관리
 - 로그인 시 자동 실행 설정
@@ -40,7 +40,7 @@ xcodebuild -project QuickFiles.xcodeproj -scheme QuickFiles -configuration Debug
 
 ## 사용 방법
 
-QuickFiles가 실행되면 Dock에는 표시되지 않고 메뉴 막대에만 나타납니다. 패널에서는 최근 파일이 가로 목록으로 표시되며, 검색어를 입력하면 파일 이름과 폴더 경로가 함께 검색됩니다. 패널의 왼쪽·오른쪽 가장자리를 끌어 너비를 바꿀 수 있습니다.
+QuickFiles가 실행되면 Dock에는 표시되지 않고 메뉴 막대에만 나타납니다. 패널에서는 최근 파일이 한 줄에 6개씩 표시되고 아래로 스크롤되며, 검색어를 입력하면 파일 이름과 폴더 경로가 함께 검색됩니다. 북마크는 패널 아래쪽 줄에 표시됩니다. 패널의 위·아래 가장자리를 끌어 높이를 바꿀 수 있습니다.
 
 **선택**
 
@@ -58,16 +58,18 @@ QuickFiles가 실행되면 Dock에는 표시되지 않고 메뉴 막대에만 �
 
 **키보드: 파일 목록에 커서가 있을 때** (파일을 클릭하거나 `Tab`)
 
-- `←`, `→`: 이전/다음 파일, `↑`, `↓`: 여러 칸씩 이동 (`Shift`를 누르면 범위 선택)
+- `←`, `→`: 이전/다음 파일, `↑`, `↓`: 한 줄 위/아래(같은 열), 마지막 줄에서 `↓`는 북마크로 (`Shift`를 누르면 범위 선택)
+- `Space`: 선택한 파일 훑어보기(Quick Look), 다시 누르면 닫기
 - `Command + A`: 모두 선택, `Command + C`: 선택한 파일 복사
 - `Tab`: 검색창으로 이동
 
 **공통**
 
+- `Command + Y`: 훑어보기 (검색창에 커서가 있어도 동작)
 - `Enter`: 선택한 파일 모두 열기 (10개가 넘으면 확인)
 - `Command + Enter`: 선택한 파일을 Finder에서 보기
 - `Esc`: 여러 개가 선택되어 있으면 하나로 줄이고, 아니면 패널 닫기
-- 컨텍스트 메뉴: 열기, Finder에서 위치 보기, 복사, 이동, 북마크에 추가/제거 (선택한 파일 전체에 적용)
+- 컨텍스트 메뉴: 훑어보기, 열기, Finder에서 위치 보기, 복사, 이동, 북마크에 추가/제거 (선택한 파일 전체에 적용)
 - `이동`: 선택한 파일을 다른 폴더로 이동 (이미 그 폴더에 있는 파일은 건너뜀)
 
 ## 설정
@@ -123,6 +125,8 @@ QuickFiles/
   Models/
     AppModels.swift                      파일 항목, 북마크, 폴더 규칙, 단축키 모델
     SelectionModel.swift                 Finder 방식 다중 선택 규칙 (AppKit 의존 없음)
+    MovePlanner.swift                    여러 파일 이동 계획 (건너뛸 항목, 함께 옮겨지는 항목)
+    GridNavigation.swift                 그리드 위/아래 이동 규칙
   Services/
     SettingsStore.swift                  설정 저장과 복원
     RecentFileScanner.swift              최근 파일 스캔과 정렬
@@ -133,12 +137,13 @@ QuickFiles/
     QuickAccessView.swift                검색 패널 UI, 키보드 처리
     PanelViewModel.swift                 검색 결과 캐시와 선택 상태
     TileInteractionView.swift            파일 타일의 클릭, 메뉴, 여러 파일 드래그 (AppKit)
+    QuickPanelWindow.swift               패널 창, Quick Look 미리보기 제어
     PanelController.swift                패널 표시, 검색 결과 갱신, 여러 파일 작업
     SettingsView.swift                   설정 화면
     SettingsWindowController.swift       설정 창 관리
   Assets.xcassets/                       앱 아이콘, 메뉴 막대 아이콘 에셋
 Design/AppIcon/                          아이콘 원본과 생성 스크립트
-Tests/QuickFilesCoreTests/               SelectionModel 단위 테스트
+Tests/QuickFilesCoreTests/               선택·이동 계획·그리드 이동 단위 테스트
 Package.swift                            테스트 실행용 Swift 패키지 (`swift test`)
 QuickFiles.xcodeproj/                    Xcode 프로젝트
 ```
